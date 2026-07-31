@@ -1,8 +1,10 @@
 import typer
+import sys
 
-from dflow.config import get_flow_tool, load_flow_config
+from dflow.backends.simulation import run_simulation
+from dflow.config import load_flow_config
 from dflow.core.project import find_project_root
-from dflow.utils import is_tool_available
+from dflow.core.project import save_sim_report
 
 app = typer.Typer()
 
@@ -13,14 +15,27 @@ def sim():
 
     project_root = find_project_root()
     flow_config = load_flow_config(project_root)
-    sim_tool = get_flow_tool(flow_config, "simulation")
+    result = run_simulation(project_root, flow_config)
 
-    if not sim_tool:
-        print(f"No simulation tool is configured in {project_root / 'flow.yaml'}.")
+    if result is None:
         raise typer.Exit(code=1)
 
-    if not is_tool_available(sim_tool):
-        print(f"{sim_tool} is required for simulation but was not found on PATH.")
-        raise typer.Exit(code=1)
+    save_sim_report(
+        project_root,
+        result.tool_name,
+        result.command,
+        result.returncode,
+        stdout=result.stdout,
+        stderr=result.stderr,
+    )
 
-    print(f"Simulation check passed with {sim_tool}.")
+    if result.stdout:
+        print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+
+    if result.stderr:
+        print(result.stderr, end="" if result.stderr.endswith("\n") else "\n", file=sys.stderr)
+
+    if result.returncode == 0:
+        print(f"Simulation passed with {result.tool_name}.")
+
+    raise typer.Exit(code=result.returncode)

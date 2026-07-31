@@ -9,6 +9,7 @@ lint:
 
 simulation:
     tool: verilator
+    top: counter_tb
 
 synthesis:
     tool: yosys

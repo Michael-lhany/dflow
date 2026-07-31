@@ -85,6 +85,19 @@ def find_rtl_sources(project_root: Path) -> list[Path]:
     )
 
 
+def find_tb_sources(project_root: Path) -> list[Path]:
+    """Return testbench source files under the project's tb directory."""
+    tb_root = project_root / "tb"
+    if not tb_root.exists():
+        return []
+
+    return sorted(
+        path
+        for path in tb_root.rglob("*")
+        if path.is_file() and path.suffix in {".v", ".sv", ".svh", ".cpp", ".cc", ".cxx"}
+    )
+
+
 def save_flow_report(
     project_root: Path,
     report_name: str,
@@ -146,6 +159,26 @@ def save_compile_report(
     return save_flow_report(
         project_root,
         "compile",
+        tool_name,
+        command,
+        returncode,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+
+def save_sim_report(
+    project_root: Path,
+    tool_name: str,
+    command: list[str],
+    returncode: int,
+    stdout: str = "",
+    stderr: str = "",
+) -> Path:
+    """Persist simulation output under the project's reports directory."""
+    return save_flow_report(
+        project_root,
+        "sim",
         tool_name,
         command,
         returncode,
