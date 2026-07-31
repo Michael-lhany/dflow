@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dflow"
+version = "0.1.0"
+description = "Digital Flow Manager"
+authors = [
+    {name="Michael Hany"}
+]
+
+dependencies = [
+    "typer",
+    "rich",
+    "pyyaml"
+]
+
+[project.scripts]
+dflow = "dflow.cli:app"
