@@ -1,0 +1,14 @@
+project:
+    name: counter
+    
+compile:
+    tool: verilator
+    
+lint:
+    tool: verilator
+
+simulation:
+    tool: verilator
+
+synthesis:
+    tool: yosys
