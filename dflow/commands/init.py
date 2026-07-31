@@ -1,5 +1,3 @@
-import typer
-
 from dflow.core.project import create_project
 
 

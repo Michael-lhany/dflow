@@ -7,11 +7,11 @@
 ## Build, Test, and Development Commands
 
 - `python -m venv .venv && source .venv/bin/activate` creates an isolated environment.
-- `python -m pip install -e .` installs DFlow and exposes the `dflow` command for local development.
+- `python -m pip install -e '.[dev]'` installs DFlow, pytest, and the `dflow` command for local development.
 - `dflow --help` verifies the CLI entry point and lists registered commands.
 - `dflow doctor` checks tools configured by the nearest DFlow project's `flow.yaml`.
 - `dflow lint`, `dflow compile`, and `dflow sim` exercise flows from inside an example project; Verilator must be installed when configured.
-- `pytest` runs the test suite once test dependencies are installed. The suite is currently empty, so add tests with behavioral changes.
+- `pytest` runs the automated command, reporting, and backend tests.
 
 ## Coding Style & Naming Conventions
 

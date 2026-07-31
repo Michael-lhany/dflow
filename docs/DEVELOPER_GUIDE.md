@@ -37,20 +37,20 @@ checks that its configured tool exists. Status and clean are placeholders.
 ├── AGENTS.md                         contributor instructions
 ├── README.md                         empty user-documentation placeholder
 ├── pyproject.toml                    package metadata and console entry point
-├── requirements.txt                 pinned environment packages
 ├── docs/DEVELOPER_GUIDE.md           this implementation reference
-├── tests/                            empty automated-test location
+├── tests/                            pytest suite
 ├── dflow/
 │   ├── cli.py                        Typer application and registration
 │   ├── config.py                     flow.yaml accessors
 │   ├── utils.py                      PATH checks
 │   ├── logger.py                     empty placeholder
 │   ├── version.py                    empty placeholder
-│   ├── commands/                     eight CLI commands
+│   ├── commands/                     commands and shared CLI lifecycle
 │   ├── core/                         filesystem and project helpers
 │   └── backends/
 │       ├── executor.py               shared subprocess wrapper
-│       ├── result.py                 common result model
+│       ├── result.py                 flow and step result models
+│       ├── verilator.py              shared RTL-stage runner
 │       ├── compile/                  Verilator compile dispatcher/backend
 │       ├── lint/                     Verilator lint dispatcher/backend
 │       └── simulation/               Verilator simulation dispatcher/backend
@@ -69,18 +69,20 @@ state, pytest/build output, `obj_dir/`, logs, reports, and OS metadata.
 
 ## 3. Packaging and Entry Point
 
-`pyproject.toml` uses `setuptools.build_meta` with `setuptools>=61`. Runtime
-dependencies are `typer`, `rich`, and `pyyaml`. The installed console script is:
+`pyproject.toml` is the single dependency source. It uses
+`setuptools.build_meta` with `setuptools>=61`; package discovery includes only
+`dflow*`. Runtime dependencies are `typer` and `pyyaml`, while the optional
+`dev` extra installs pytest. The installed console script is:
 
 ```toml
 [project.scripts]
 dflow = "dflow.cli:app"
 ```
 
-`requirements.txt` pins those packages and their current transitive environment
-dependencies. `dflow/cli.py` creates the Typer application and registers, in
-order, `init`, `compile`, `synth`, `lint`, `sim`, `status`, `doctor`, and `clean`.
-It can also run directly through `python -m dflow.cli`.
+`dflow/cli.py` is the only command-registration point. It registers, in order,
+`init`, `compile`, `synth`, `lint`, `sim`, `status`, `doctor`, and `clean`.
+It can also run directly through `python -m dflow.cli`. Install a development
+checkout with `python -m pip install -e '.[dev]'`.
 
 ## 4. Project Model
 
@@ -181,9 +183,9 @@ Matches the compile command flow but dispatches lint and writes
 ### `dflow sim`
 
 Finds the project, loads configuration, and calls the simulation dispatcher. It
-writes `reports/sim/<tool>.log`, forwards the combined build/run output, prints
-success only for return code 0, and exits with the resulting code. A missing or
-unsupported backend/precondition exits with code 1.
+writes `reports/sim/<tool>.log`, forwards each completed step's output with
+headings, prints success only for return code 0, and exits with the final step's
+code. A missing or unsupported backend/precondition exits with code 1.
 
 ### `dflow synth`
 
@@ -193,27 +195,35 @@ does not invoke synthesis or write a report.
 
 ### `dflow doctor`
 
-Collects non-empty tool names from compile, lint, simulation, and synthesis in
-that order. It prints `<tool>: found|missing` for each configured entry, exits 1
-if any are missing, and otherwise prints a success message. It does not validate
-backend support or simulation's additional `make`/Clang requirements.
+Collects unique, non-empty tool names from compile, lint, simulation, and
+synthesis in that order. Each executable is checked once. It prints
+`<tool>: found|missing`, exits 1 if any are missing, and otherwise prints a
+success message. It does not validate backend support or simulation's additional
+`make`/Clang requirements.
 
 ### `dflow status` and `dflow clean`
 
-These commands only print `Status command` and `Clean command`, respectively.
-They do not inspect status or remove artifacts.
+These placeholders print `Status is not implemented yet.` and
+`Clean is not implemented yet.`, respectively. They do not inspect status or
+remove artifacts.
 
 ## 7. Backend Contracts
 
 ### Result and execution
 
-`FlowRunResult` is a frozen dataclass containing `tool_name`, the executed
-`command` list, `returncode`, `stdout`, and `stderr`.
+`FlowStepResult` is a dataclass containing a step name, command, return
+code, stdout, and stderr. `FlowRunResult` contains the configured tool name and
+the ordered list of completed steps; its return code is the last step's code, or
+1 when the list is empty.
 
 `run_flow_command()` copies the current environment, optionally merges an
 environment override, runs a list-form command from the project root, captures
-text stdout/stderr, and returns `FlowRunResult`. It does not use a shell or catch
-process-launch errors.
+text stdout/stderr, and returns `FlowStepResult`. It does not use a shell or
+catch process-launch errors.
+
+`commands/common.py` provides the shared lifecycle for compile, lint, and
+simulation: project/config loading, backend invocation, report persistence,
+step-output forwarding, success output, and exit-code propagation.
 
 ### Dispatchers
 
@@ -223,8 +233,9 @@ and prints an error and returns `None` for missing or unsupported tools.
 
 ### Verilator compile
 
-The compile backend requires `verilator` on `PATH` and at least one RTL source.
-It uses `compile.options`, defaulting to `--cc`, then executes:
+The compile backend uses the shared RTL-stage helper. It requires `verilator`
+on `PATH` and at least one RTL source, reads `compile.options` with a `--cc`
+default, then executes:
 
 ```text
 verilator <options> <sorted RTL sources>
@@ -232,8 +243,8 @@ verilator <options> <sorted RTL sources>
 
 ### Verilator lint
 
-The lint backend has the same preconditions. It uses `lint.options`, defaulting
-to `--lint-only -Wall`, then executes:
+The lint backend uses the same helper and preconditions. It reads `lint.options`,
+defaulting to `--lint-only -Wall`, then executes:
 
 ```text
 verilator <options> <sorted RTL sources>
@@ -265,18 +276,16 @@ LLVM 18 include/library paths (`/usr/lib/llvm-18/...`). It therefore also relies
 on `make`, Clang, and libc++ even though only Verilator is checked up front.
 
 After a successful build, the expected binary is `sim/obj_dir/V<top>`. Missing
-binary output becomes a synthetic return code 1. Otherwise the binary runs from
-the project root so relative waveform paths resolve there. Verilator, Make, and
-simulation output are combined under labeled headings. A Make failure combines
-Verilator and Make output; an initial Verilator failure returns its result
-directly. The result's recorded command is the initial Verilator build command.
+binary output becomes a synthetic failed step. Otherwise the binary runs from
+the project root so relative waveform paths resolve there. The backend returns
+the completed Verilator, Make, validation, and simulation steps in order and
+stops immediately after a failed step.
 
 ## 8. Reports and Generated Artifacts
 
 `save_flow_report()` creates `reports/<stage>/<tool>.log` and overwrites the same
-tool/stage log on later runs. Each report records the command and return code,
-followed by non-empty `STDOUT` and `STDERR` sections. Convenience wrappers select
-the `compile`, `lint`, and `sim` stages.
+tool/stage log on later runs. For every completed step, the report records its
+name, command, return code, and non-empty `STDOUT`/`STDERR` sections.
 
 Compile, lint, and simulation commands save reports for both successful and
 nonzero tool results. They do not create a report when dispatch returns `None`.
@@ -311,14 +320,17 @@ these are generated artifacts rather than maintained source files.
 - Config validation and friendly handling for malformed YAML or missing project
   markers are not implemented.
 - `logger.py`, `version.py`, and most package `__init__.py` files are empty.
-- `README.md` and `tests/` are empty; no automated tests, formatter, or linter
-  are configured.
+- `README.md` is empty, and no formatter or linter is configured.
+- The pytest suite covers shared results/reports, placeholders, doctor tool
+  deduplication, and simulation sequencing; broader command/config coverage is
+  still needed.
 - Reports overwrite previous logs for the same stage/tool.
 
 ## 11. Extension Rules
 
 Keep commands thin, put shared project behavior in `core`, and isolate external
 tool behavior under a stage-specific backend package. New executing backends
-should return `FlowRunResult`, use the shared executor where practical, preserve
-external return codes, and leave report persistence to the command/core layers.
-When behavior changes, update this guide and add tests under `tests/`.
+should return `FlowRunResult` containing ordered `FlowStepResult` entries, use
+the shared executor where practical, preserve external return codes, and leave
+report persistence to the shared command/core layers. When behavior changes,
+update this guide and add tests under `tests/`.

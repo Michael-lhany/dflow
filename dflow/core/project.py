@@ -1,7 +1,10 @@
 from pathlib import Path
+from typing import TYPE_CHECKING, Sequence
 
 from dflow.core.filesystem import create_directory, create_text_file
 
+if TYPE_CHECKING:
+    from dflow.backends.result import FlowStepResult
 
 PROJECT_DIRECTORIES = [
     "rtl",
@@ -62,14 +65,14 @@ def create_project(project_name: str):
 
 
 def find_project_root(start_path: Path | None = None) -> Path:
-	"""Find the nearest parent directory containing the project marker."""
-	current_path = (start_path or Path.cwd()).resolve()
+    """Find the nearest parent directory containing the project marker."""
+    current_path = (start_path or Path.cwd()).resolve()
 
-	for candidate_path in (current_path, *current_path.parents):
-		if (candidate_path / PROJECT_MARKER).exists():
-			return candidate_path
+    for candidate_path in (current_path, *current_path.parents):
+        if (candidate_path / PROJECT_MARKER).exists():
+            return candidate_path
 
-	raise FileNotFoundError("Could not find a DFlow project root.")
+    raise FileNotFoundError("Could not find a DFlow project root.")
 
 
 def find_rtl_sources(project_root: Path) -> list[Path]:
@@ -102,86 +105,31 @@ def save_flow_report(
     project_root: Path,
     report_name: str,
     tool_name: str,
-    command: list[str],
-    returncode: int,
-    stdout: str = "",
-    stderr: str = "",
+    steps: Sequence["FlowStepResult"],
 ) -> Path:
     """Persist flow output under the project's reports directory."""
     report_dir = project_root / "reports" / report_name
     report_path = report_dir / f"{tool_name}.log"
     create_directory(report_dir)
 
-    report_lines = [
-        "Command: " + " ".join(command),
-        f"Return code: {returncode}",
-    ]
+    report_lines: list[str] = []
+    for index, step in enumerate(steps, start=1):
+        if report_lines:
+            report_lines.append("")
 
-    if stdout:
-        report_lines.extend(["", "STDOUT:", stdout.rstrip("\n")])
+        report_lines.extend(
+            [
+                f"Step {index}: {step.name}",
+                "Command: " + (" ".join(step.command) if step.command else "<none>"),
+                f"Return code: {step.returncode}",
+            ]
+        )
 
-    if stderr:
-        report_lines.extend(["", "STDERR:", stderr.rstrip("\n")])
+        if step.stdout:
+            report_lines.extend(["", "STDOUT:", step.stdout.rstrip("\n")])
+
+        if step.stderr:
+            report_lines.extend(["", "STDERR:", step.stderr.rstrip("\n")])
 
     create_text_file(report_path, "\n".join(report_lines) + "\n")
     return report_path
-
-
-def save_lint_report(
-    project_root: Path,
-    tool_name: str,
-    command: list[str],
-    returncode: int,
-    stdout: str = "",
-    stderr: str = "",
-) -> Path:
-    """Persist lint output under the project's reports directory."""
-    return save_flow_report(
-        project_root,
-        "lint",
-        tool_name,
-        command,
-        returncode,
-        stdout=stdout,
-        stderr=stderr,
-    )
-
-
-def save_compile_report(
-    project_root: Path,
-    tool_name: str,
-    command: list[str],
-    returncode: int,
-    stdout: str = "",
-    stderr: str = "",
-) -> Path:
-    """Persist compile output under the project's reports directory."""
-    return save_flow_report(
-        project_root,
-        "compile",
-        tool_name,
-        command,
-        returncode,
-        stdout=stdout,
-        stderr=stderr,
-    )
-
-
-def save_sim_report(
-    project_root: Path,
-    tool_name: str,
-    command: list[str],
-    returncode: int,
-    stdout: str = "",
-    stderr: str = "",
-) -> Path:
-    """Persist simulation output under the project's reports directory."""
-    return save_flow_report(
-        project_root,
-        "sim",
-        tool_name,
-        command,
-        returncode,
-        stdout=stdout,
-        stderr=stderr,
-    )

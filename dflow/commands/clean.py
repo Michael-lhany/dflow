@@ -1,9 +1,3 @@
-import typer
-
-app = typer.Typer()
-
-
-@app.command()
 def clean():
     """Clean generated files."""
-    print("Clean command")
+    print("Clean is not implemented yet.")

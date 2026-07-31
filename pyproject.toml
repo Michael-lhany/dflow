@@ -12,9 +12,17 @@ authors = [
 
 dependencies = [
     "typer",
-    "rich",
     "pyyaml"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest"
 ]
 
 [project.scripts]
 dflow = "dflow.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["dflow*"]
+exclude = ["Dflow_project_examples*", "tests*"]
