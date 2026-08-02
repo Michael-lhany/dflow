@@ -32,10 +32,16 @@ def run_stage_command(
     stage_name: str,
     backend_runner: BackendRunner,
     success_message: str,
+    tool_options: list[str] | None = None,
 ) -> None:
     """Run a configured backend and handle its common CLI lifecycle."""
     project_root = find_project_root()
     flow_config = load_flow_config(project_root)
+    if tool_options:
+        section_config = dict(flow_config.get(stage_name) or {})
+        section_config["_cli_options"] = tool_options
+        flow_config = {**flow_config, stage_name: section_config}
+
     result = backend_runner(project_root, flow_config)
 
     if result is None:

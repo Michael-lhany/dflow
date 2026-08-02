@@ -39,6 +39,7 @@ def test_simulation_returns_each_completed_step(monkeypatch, tmp_path):
     assert result.returncode == 0
     assert calls == ["Verilator build", "Make build", "Simulation"]
     assert [step.name for step in result.steps] == calls
+    assert (tmp_path / "sim" / "waves").is_dir()
 
 
 def test_simulation_stops_after_failed_make(monkeypatch, tmp_path):

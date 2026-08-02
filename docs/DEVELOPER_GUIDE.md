@@ -28,7 +28,8 @@ User -> Typer command -> project/config helpers -> backend dispatcher
 - `dflow/utils.py` checks executable availability on `PATH`.
 
 Compile, lint, and simulation have Verilator backends. Synthesis currently only
-checks that its configured tool exists. Status and clean are placeholders.
+checks that its configured tool exists. Clean removes generated artifacts, while
+status remains a placeholder.
 
 ## 2. Repository Layout
 
@@ -37,7 +38,9 @@ checks that its configured tool exists. Status and clean are placeholders.
 ├── AGENTS.md                         contributor instructions
 ├── README.md                         empty user-documentation placeholder
 ├── pyproject.toml                    package metadata and console entry point
-├── docs/DEVELOPER_GUIDE.md           this implementation reference
+├── docs/
+│   ├── DEVELOPER_GUIDE.md            implementation reference
+│   └── VERILATOR_ARGUMENTS.md        categorized Verilator option reference
 ├── tests/                            pytest suite
 ├── dflow/
 │   ├── cli.py                        Typer application and registration
@@ -93,7 +96,7 @@ the following directories with `parents=True, exist_ok=True`:
 
 ```text
 rtl/  tb/  scripts/  constraints/  docs/  reports/
-formal/  openlane/  sim/  sim/logs/  sim/waves/
+formal/  openlane/  sim/  sim/waves/
 ```
 
 It writes `.dflow` containing `version: 0.1.0` and creates this default
@@ -148,7 +151,8 @@ The accessors behave as follows:
 - `get_flow_tool()` returns a non-empty string or `None`.
 - `get_flow_options()` accepts only a list and removes non-string or empty
   entries. Missing/non-list values use the backend default. An explicit empty
-  list disables all default options.
+  list disables all default options. Tool arguments supplied on the CLI are
+  appended after the configured or default options.
 
 Recognized fields are:
 
@@ -167,7 +171,7 @@ Recognized fields are:
 Creates the project marker, default configuration, and standard directory tree,
 then prints a success message. It does not need an existing DFlow project.
 
-### `dflow compile`
+### `dflow compile [-- TOOL_OPTION...]`
 
 Finds the project, loads configuration, and calls the compile dispatcher. A
 missing/unsupported backend or backend precondition failure exits with code 1.
@@ -175,17 +179,32 @@ Otherwise it saves `reports/compile/<tool>.log`, forwards captured stdout and
 stderr, prints a success message for return code 0, and exits with the tool's
 return code.
 
-### `dflow lint`
+Arguments after `--` are appended to `compile.options` or the backend defaults:
+
+```bash
+dflow compile -- --Wall
+```
+
+### `dflow lint [-- TOOL_OPTION...]`
 
 Matches the compile command flow but dispatches lint and writes
-`reports/lint/<tool>.log`.
+`reports/lint/<tool>.log`. Extra arguments use the same pass-through syntax:
 
-### `dflow sim`
+```bash
+dflow lint -- -Wall --Wno-fatal
+```
+
+### `dflow sim [-- TOOL_OPTION...]`
 
 Finds the project, loads configuration, and calls the simulation dispatcher. It
 writes `reports/sim/<tool>.log`, forwards each completed step's output with
 headings, prints success only for return code 0, and exits with the final step's
 code. A missing or unsupported backend/precondition exits with code 1.
+Arguments after `--` are appended to the configured/default simulation options:
+
+```bash
+dflow sim -- --threads 4
+```
 
 ### `dflow synth`
 
@@ -201,11 +220,21 @@ synthesis in that order. Each executable is checked once. It prints
 success message. It does not validate backend support or simulation's additional
 `make`/Clang requirements.
 
-### `dflow status` and `dflow clean`
+### `dflow clean [--dry-run]`
 
-These placeholders print `Status is not implemented yet.` and
-`Clean is not implemented yet.`, respectively. They do not inspect status or
-remove artifacts.
+Finds the project root and removes generated Verilator object directories at
+`obj_dir/` and `sim/obj_dir/`, plus the obsolete `sim/logs/` directory from
+older projects. It clears the contents of `reports/` and `sim/waves/` while
+preserving those scaffold directories.
+Every target is validated against the resolved project root; unsafe paths and
+parent-directory symlink escapes are refused. Failures are reported per path,
+remaining targets are still processed, and any failure produces exit code 1.
+`--dry-run` previews non-empty/existing targets without changing them.
+
+### `dflow status`
+
+This placeholder prints `Status is not implemented yet.` and does not inspect
+project status.
 
 ## 7. Backend Contracts
 
@@ -291,6 +320,10 @@ Compile, lint, and simulation commands save reports for both successful and
 nonzero tool results. They do not create a report when dispatch returns `None`.
 Verilator itself may create compile artifacts, while simulation builds under
 `sim/obj_dir` and a testbench may write files such as `sim/waves/*.vcd`.
+Compile's default Verilator invocation can also create `obj_dir/`. Simulation
+ensures `sim/waves/` exists before building. Use
+`dflow clean --dry-run` to preview these generated artifacts and `dflow clean`
+to remove or clear them.
 
 ## 9. Counter Example
 
@@ -313,7 +346,7 @@ these are generated artifacts rather than maintained source files.
 ## 10. Current Limitations
 
 - Only Verilator compile, lint, and simulation backends exist.
-- Synthesis, status, and clean have no execution backend.
+- Synthesis has no execution backend, and status remains a placeholder.
 - Simulation's Make command is tied to Clang/libc++ and LLVM 18 filesystem paths.
 - `doctor` checks configured tool names only; it does not validate backend
   support, source files, YAML shape, `make`, Clang, or libc++.
@@ -321,9 +354,9 @@ these are generated artifacts rather than maintained source files.
   markers are not implemented.
 - `logger.py`, `version.py`, and most package `__init__.py` files are empty.
 - `README.md` is empty, and no formatter or linter is configured.
-- The pytest suite covers shared results/reports, placeholders, doctor tool
-  deduplication, and simulation sequencing; broader command/config coverage is
-  still needed.
+- The pytest suite covers shared results/reports, clean safety and failure
+  handling, placeholders, doctor tool deduplication, and simulation sequencing;
+  broader command/config coverage is still needed.
 - Reports overwrite previous logs for the same stage/tool.
 
 ## 11. Extension Rules

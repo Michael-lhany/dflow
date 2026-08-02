@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Iterator, NamedTuple, Sequence
 
 from dflow.core.filesystem import create_directory, create_text_file
 
@@ -16,9 +16,18 @@ PROJECT_DIRECTORIES = [
     "formal",
     "openlane",
     "sim",
-    "sim/logs",
     "sim/waves",
 ]
+
+GENERATED_DIRECTORIES = (
+    Path("obj_dir"),
+    Path("sim/obj_dir"),
+    Path("sim/logs"),
+)
+GENERATED_CONTENT_DIRECTORIES = (
+    Path("reports"),
+    Path("sim/waves"),
+)
 
 PROJECT_MARKER = ".dflow"
 DEFAULT_FLOW_CONFIG = """project:
@@ -133,3 +142,17 @@ def save_flow_report(
 
     create_text_file(report_path, "\n".join(report_lines) + "\n")
     return report_path
+
+
+class CleanTarget(NamedTuple):
+    path: Path
+    preserve_directory: bool
+
+
+def iter_generated_paths(project_root: Path) -> Iterator[CleanTarget]:
+    """Yield generated paths and whether clean should preserve the directory."""
+    for relative_path in GENERATED_DIRECTORIES:
+        yield CleanTarget(project_root / relative_path, False)
+
+    for relative_path in GENERATED_CONTENT_DIRECTORIES:
+        yield CleanTarget(project_root / relative_path, True)

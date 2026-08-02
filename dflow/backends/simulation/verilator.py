@@ -47,6 +47,8 @@ def _prepare_object_directory(project_root: Path) -> Path:
     object_directory = project_root / "sim" / "obj_dir"
     if object_directory.exists():
         shutil.rmtree(object_directory)
+
+    create_directory(project_root / "sim" / "waves")
     create_directory(object_directory)
     return object_directory
 
