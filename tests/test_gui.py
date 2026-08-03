@@ -33,6 +33,14 @@ def test_build_cli_command_ignores_tool_arguments_for_other_commands():
     ]
 
 
+def test_build_cli_command_adds_synthesis_arguments():
+    assert gui_module.build_cli_command("synth", "-Q -q")[-3:] == [
+        "--",
+        "-Q",
+        "-q",
+    ]
+
+
 def test_gui_command_launches_interface(monkeypatch):
     launched = False
 

@@ -13,3 +13,4 @@ simulation:
 
 synthesis:
     tool: yosys
+    top: counter

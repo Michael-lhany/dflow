@@ -28,9 +28,9 @@ User -> Typer command or Tkinter GUI -> project/config helpers -> backend dispat
 - `dflow/config.py` normalizes `flow.yaml` data.
 - `dflow/utils.py` checks executable availability on `PATH`.
 
-Compile, lint, and simulation have Verilator backends. Synthesis currently only
-checks that its configured tool exists. Clean removes generated artifacts, while
-status summarizes project sources, flows, reports, and generated artifacts.
+Compile, lint, and simulation have Verilator backends, and synthesis has a
+generic Yosys backend. Clean removes generated artifacts, while status
+summarizes project sources, flows, reports, and generated artifacts.
 
 ## 2. Repository Layout
 
@@ -58,7 +58,8 @@ status summarizes project sources, flows, reports, and generated artifacts.
 │       ├── verilator.py              shared RTL-stage runner
 │       ├── compile/                  Verilator compile dispatcher/backend
 │       ├── lint/                     Verilator lint dispatcher/backend
-│       └── simulation/               Verilator simulation dispatcher/backend
+│       ├── simulation/               Verilator simulation dispatcher/backend
+│       └── synthesis/                Yosys synthesis dispatcher/backend
 └── Dflow_project_examples/counter/
     ├── .dflow
     ├── flow.yaml
@@ -67,10 +68,10 @@ status summarizes project sources, flows, reports, and generated artifacts.
     └── sim/waves/counter.vcd
 ```
 
-The top-level, command, core, and backend `__init__.py` files are empty package
-markers; the compile, lint, and simulation package initializers implement their
-dispatchers. `.gitignore` excludes Python caches, virtual environments, editor
-state, pytest/build output, `obj_dir/`, logs, reports, and OS metadata.
+The top-level, command, and core `__init__.py` files are empty package markers;
+the flow backend package initializers implement their dispatchers. `.gitignore`
+excludes Python caches, virtual environments, editor state, pytest/build output,
+`obj_dir/`, logs, reports, and OS metadata.
 
 ## 3. Packaging and Entry Point
 
@@ -167,14 +168,14 @@ Recognized fields are:
 | `compile` | `tool`, `options` | Backend selection and Verilator arguments |
 | `lint` | `tool`, `options` | Backend selection and Verilator arguments |
 | `simulation` | `tool`, `options`, `top` | Backend, arguments, and top module |
-| `synthesis` | `tool` | Executable availability check only |
+| `synthesis` | `tool`, `options`, `top` | Yosys arguments and optional top module |
 
 ## 6. Command Reference
 
 ### `dflow gui`
 
 Opens the Tkinter interface. Select a project directory, optionally enter
-temporary Verilator arguments, and run init, compile, lint, simulation,
+temporary backend arguments, and run init, compile, lint, simulation,
 synthesis, doctor, status, or clean from buttons. Commands run through
 `python -m dflow.cli`, so the GUI uses the same configuration, backends,
 reports, and exit codes as the terminal. Output is streamed into the GUI without
@@ -220,11 +221,17 @@ Arguments after `--` are appended to the configured/default simulation options:
 dflow sim -- --threads 4
 ```
 
-### `dflow synth`
+### `dflow synth [-- TOOL_OPTION...]`
 
-Reads `synthesis.tool`. It exits 1 when no tool is configured or the executable
-is absent from `PATH`; otherwise it prints that the synthesis check passed. It
-does not invoke synthesis or write a report.
+Finds RTL sources and dispatches the configured synthesis backend. The Yosys
+backend writes generic netlists to `build/synthesis/netlist.v` and
+`build/synthesis/netlist.json`, then saves `reports/synthesis/yosys.log`.
+`synthesis.top` selects the top module; Yosys auto-detects it when omitted.
+Arguments after `--` are appended to `synthesis.options`:
+
+```bash
+dflow synth -- -Q
+```
 
 ### `dflow doctor`
 
@@ -236,10 +243,10 @@ success message. It does not validate backend support or simulation's additional
 
 ### `dflow clean [--dry-run]`
 
-Finds the project root and removes generated Verilator object directories at
-`obj_dir/` and `sim/obj_dir/`, plus the obsolete `sim/logs/` directory from
-older projects. It clears the contents of `reports/` and `sim/waves/` while
-preserving those scaffold directories.
+Finds the project root and removes `build/`, generated Verilator object
+directories at `obj_dir/` and `sim/obj_dir/`, plus the obsolete `sim/logs/`
+directory from older projects. It clears the contents of `reports/` and
+`sim/waves/` while preserving those scaffold directories.
 Every target is validated against the resolved project root; unsafe paths and
 parent-directory symlink escapes are refused. Failures are reported per path,
 remaining targets are still processed, and any failure produces exit code 1.
@@ -248,10 +255,10 @@ remaining targets are still processed, and any failure produces exit code 1.
 ### `dflow status`
 
 Prints the project name and root, RTL and testbench source counts, each
-configured flow tool, and the latest result recorded for compile, lint, and
-simulation. It also reports whether reports, waveforms, and build files are
-present. Synthesis is labeled `not implemented yet`. Status is read-only and
-does not check tool availability; use `dflow doctor` for that.
+configured flow tool, and the latest result recorded for compile, lint,
+simulation, and synthesis. It also reports whether reports, waveforms, and
+build files are present. Status is read-only and does not check tool
+availability; use `dflow doctor` for that.
 
 ## 7. Backend Contracts
 
@@ -267,15 +274,16 @@ environment override, runs a list-form command from the project root, captures
 text stdout/stderr, and returns `FlowStepResult`. It does not use a shell or
 catch process-launch errors.
 
-`commands/common.py` provides the shared lifecycle for compile, lint, and
-simulation: project/config loading, backend invocation, report persistence,
-step-output forwarding, success output, and exit-code propagation.
+`commands/common.py` provides the shared lifecycle for compile, lint,
+simulation, and synthesis: project/config loading, backend invocation, report
+persistence, step-output forwarding, success output, and exit-code propagation.
 
 ### Dispatchers
 
-Compile, lint, and simulation dispatchers may load configuration themselves when
-none is supplied. Each reads its section's `tool`, supports exactly `verilator`,
-and prints an error and returns `None` for missing or unsupported tools.
+Flow dispatchers may load configuration themselves when none is supplied. Each
+reads its section's `tool` and prints an error and returns `None` for missing or
+unsupported tools. Compile, lint, and simulation support Verilator; synthesis
+supports Yosys.
 
 ### Verilator compile
 
@@ -327,31 +335,47 @@ the project root so relative waveform paths resolve there. The backend returns
 the completed Verilator, Make, validation, and simulation steps in order and
 stops immediately after a failed step.
 
+### Yosys synthesis
+
+The synthesis backend requires `yosys` on `PATH` and at least one RTL source.
+It removes stale files under `build/synthesis/`, recreates that directory, and
+runs a single Yosys process. The generated script reads RTL as SystemVerilog,
+runs `synth -top <top>` or `synth -auto-top`, then writes portable Verilog and
+JSON netlists. `synthesis.options` and CLI arguments are passed as Yosys process
+options before `-p`.
+
+This generic flow does not target an FPGA family or ASIC standard-cell library,
+so it does not consume timing or pin constraints. The generated `constraints/`
+directory remains reserved for a future technology-specific backend; adding an
+unused SDC file now would incorrectly imply that timing is being enforced.
+
 ## 8. Reports and Generated Artifacts
 
 `save_flow_report()` creates `reports/<stage>/<tool>.log` and overwrites the same
 tool/stage log on later runs. For every completed step, the report records its
 name, command, return code, and non-empty `STDOUT`/`STDERR` sections.
 
-Compile, lint, and simulation commands save reports for both successful and
-nonzero tool results. They do not create a report when dispatch returns `None`.
-Verilator itself may create compile artifacts, while simulation builds under
-`sim/obj_dir` and a testbench may write files such as `sim/waves/*.vcd`.
-Compile's default Verilator invocation can also create `obj_dir/`. Simulation
-ensures `sim/waves/` exists before building. Use
+Compile, lint, simulation, and synthesis commands save reports for successful
+and nonzero tool results. They do not create a report when dispatch returns
+`None`. Yosys writes netlists under `build/synthesis/`. Verilator itself may
+create compile artifacts, while simulation builds under `sim/obj_dir` and a
+testbench may write files such as `sim/waves/*.vcd`. Compile's default Verilator
+invocation can also create `obj_dir/`. Simulation ensures `sim/waves/` exists
+before building. Use
 `dflow clean --dry-run` to preview these generated artifacts and `dflow clean`
 to remove or clear them.
 
 ## 9. Counter Example
 
-`Dflow_project_examples/counter/` demonstrates the implemented Verilator flow:
+`Dflow_project_examples/counter/` demonstrates the Verilator and Yosys flows:
 
 - `rtl/counter.v` is a four-bit active-low-reset counter.
 - `tb/counter_tb.sv` supplies a timed SystemVerilog testbench, enables VCD
   tracing, checks that eight clock edges produce count 8, and exits fatally on
   failure.
 - `flow.yaml` selects Verilator for compile, lint, and simulation, declares
-  `simulation.top: counter_tb`, and selects Yosys for synthesis.
+  `simulation.top: counter_tb`, selects Yosys, and declares
+  `synthesis.top: counter`.
 - `.dflow` marks the example as a runnable DFlow project.
 - `sim/waves/counter.vcd` is a locally generated, currently untracked waveform.
 
@@ -362,8 +386,9 @@ these are generated artifacts rather than maintained source files.
 
 ## 10. Current Limitations
 
-- Only Verilator compile, lint, and simulation backends exist.
-- Synthesis has no execution backend.
+- Synthesis currently produces only generic Yosys netlists; FPGA-family and
+  ASIC-library mapping, timing constraints, and pin constraints are not
+  implemented.
 - Simulation's Make command is tied to Clang/libc++ and LLVM 18 filesystem paths.
 - `doctor` checks configured tool names only; it does not validate backend
   support, source files, YAML shape, `make`, Clang, or libc++.

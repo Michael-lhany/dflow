@@ -18,7 +18,7 @@ PROJECT_COMMANDS = (
     ("Doctor", "doctor"),
     ("Status", "status"),
 )
-OPTION_COMMANDS = {"compile", "lint", "sim"}
+OPTION_COMMANDS = {"compile", "lint", "sim", "synth"}
 
 
 def build_cli_command(command: str, tool_options: str = "") -> list[str]:
@@ -96,7 +96,7 @@ class DFlowGui:
         )
         ttk.Label(
             options_frame,
-            text="Applied to compile, lint, and sim",
+            text="Applied to compile, lint, sim, and synth",
             style="Subtitle.TLabel",
         ).grid(row=1, column=1, sticky="w", pady=(3, 0))
 

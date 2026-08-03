@@ -11,7 +11,7 @@
 - `dflow --help` verifies the CLI entry point and lists registered commands.
 - `dflow gui` opens the graphical command runner using the selected project.
 - `dflow doctor` checks tools configured by the nearest DFlow project's `flow.yaml`.
-- `dflow lint`, `dflow compile`, and `dflow sim` exercise flows from inside an example project; Verilator must be installed when configured.
+- `dflow lint`, `dflow compile`, `dflow sim`, and `dflow synth` exercise flows from inside an example project; their configured tools must be installed.
 - Put temporary backend arguments after `--`, for example `dflow lint -- -Wall --Wno-fatal`.
 - `pytest` runs the automated command, reporting, and backend tests.
 

@@ -5,6 +5,7 @@ from dflow.cli import app
 from dflow.commands import clean as clean_module
 from dflow.commands import doctor as doctor_module
 from dflow.commands import lint as lint_module
+from dflow.commands import synth as synth_module
 from dflow.config import get_flow_options
 from dflow.core.project import PROJECT_MARKER
 
@@ -18,6 +19,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
     rtl_source.write_text("module top; endmodule\n", encoding="utf-8")
 
     removable_paths = [
+        project_root / "build",
         project_root / "obj_dir",
         project_root / "sim" / "obj_dir",
         project_root / "sim" / "logs",
@@ -38,6 +40,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert result.stdout.splitlines() == [
+        "Removed build",
         "Removed obj_dir",
         "Removed sim/obj_dir",
         "Removed sim/logs",
@@ -165,6 +168,37 @@ def test_lint_appends_cli_tool_options(tmp_path, monkeypatch):
     assert captured_options == ["--lint-only", "-Wall", "--Wno-fatal"]
 
 
+def test_synth_appends_cli_tool_options(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    (tmp_path / "flow.yaml").write_text(
+        "synthesis:\n    tool: yosys\n    options:\n        - -Q\n",
+        encoding="utf-8",
+    )
+    captured_options: list[str] = []
+
+    def fake_run_synthesis(project_root, flow_config):
+        captured_options.extend(get_flow_options(flow_config, "synthesis"))
+        return FlowRunResult(
+            tool_name="yosys",
+            steps=[
+                FlowStepResult(
+                    name="Yosys synthesis",
+                    command=["yosys", *captured_options],
+                    returncode=0,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(synth_module, "run_synthesis", fake_run_synthesis)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(app, ["synth", "--", "-q"])
+
+    assert result.exit_code == 0
+    assert captured_options == ["-Q", "-q"]
+    assert result.stdout == "Synthesis passed with yosys.\n"
+    assert (tmp_path / "reports" / "synthesis" / "yosys.log").is_file()
+
+
 def test_status_summarizes_project(tmp_path, monkeypatch):
     (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
     (tmp_path / "flow.yaml").write_text(
@@ -217,7 +251,7 @@ synthesis:
         "  Compile:    verilator       last run: passed",
         "  Lint:       verilator       last run: failed (exit code 2)",
         "  Simulation: verilator       last run: not run",
-        "  Synthesis:  yosys           not implemented yet",
+        "  Synthesis:  yosys           last run: not run",
         "",
         "Generated artifacts:",
         "  Reports: available",

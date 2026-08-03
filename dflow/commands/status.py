@@ -73,9 +73,7 @@ def status() -> None:
     ):
         tool_name = get_flow_tool(flow_config, stage)
         displayed_tool = tool_name or "not configured"
-        if stage == "synthesis":
-            result = "not implemented yet"
-        elif tool_name:
+        if tool_name:
             report_stage = "sim" if stage == "simulation" else stage
             last_result = _report_status(project_root, report_stage, tool_name)
             result = f"last run: {last_result}"
@@ -83,8 +81,9 @@ def status() -> None:
             result = "not run"
         print(f"  {label + ':':<12}{displayed_tool:<16}{result}")
 
-    has_build_files = _has_files(project_root / "obj_dir") or _has_files(
-        project_root / "sim" / "obj_dir"
+    has_build_files = any(
+        _has_files(project_root / path)
+        for path in (Path("build"), Path("obj_dir"), Path("sim/obj_dir"))
     )
     artifacts = (
         ("Reports", _has_files(project_root / "reports")),
