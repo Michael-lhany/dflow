@@ -1,0 +1,19 @@
+project:
+    name: Counter_2
+
+compile:
+    tool: verilator
+    options:
+        - --cc
+
+lint:
+    tool: verilator
+    options:
+        - --lint-only
+        - -Wall
+
+simulation:
+    tool: verilator
+
+synthesis:
+    tool: yosys

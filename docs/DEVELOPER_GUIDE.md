@@ -15,12 +15,13 @@ DFlow is an installable Python CLI that gives digital-design projects one
 interface for EDA tasks. The current architecture is:
 
 ```text
-User -> Typer command -> project/config helpers -> backend dispatcher
+User -> Typer command or Tkinter GUI -> project/config helpers -> backend dispatcher
      -> tool-specific backend -> external EDA process -> report
 ```
 
 - `dflow/commands/` owns CLI orchestration, console output, exit codes, and
   report requests.
+- `dflow/gui.py` provides a graphical launcher for the existing CLI commands.
 - `dflow/core/` owns project creation, discovery, source discovery, and report
   persistence.
 - `dflow/backends/` selects and runs tool implementations.
@@ -29,7 +30,7 @@ User -> Typer command -> project/config helpers -> backend dispatcher
 
 Compile, lint, and simulation have Verilator backends. Synthesis currently only
 checks that its configured tool exists. Clean removes generated artifacts, while
-status remains a placeholder.
+status summarizes project sources, flows, reports, and generated artifacts.
 
 ## 2. Repository Layout
 
@@ -44,6 +45,7 @@ status remains a placeholder.
 ├── tests/                            pytest suite
 ├── dflow/
 │   ├── cli.py                        Typer application and registration
+│   ├── gui.py                        Tkinter command launcher
 │   ├── config.py                     flow.yaml accessors
 │   ├── utils.py                      PATH checks
 │   ├── logger.py                     empty placeholder
@@ -83,9 +85,12 @@ dflow = "dflow.cli:app"
 ```
 
 `dflow/cli.py` is the only command-registration point. It registers, in order,
-`init`, `compile`, `synth`, `lint`, `sim`, `status`, `doctor`, and `clean`.
+`init`, `compile`, `synth`, `lint`, `sim`, `status`, `doctor`, `clean`, and
+`gui`.
 It can also run directly through `python -m dflow.cli`. Install a development
 checkout with `python -m pip install -e '.[dev]'`.
+From the repository root, `source ./activate.sh` activates the existing `.venv`
+and reports how to create it when it is missing.
 
 ## 4. Project Model
 
@@ -166,6 +171,15 @@ Recognized fields are:
 
 ## 6. Command Reference
 
+### `dflow gui`
+
+Opens the Tkinter interface. Select a project directory, optionally enter
+temporary Verilator arguments, and run init, compile, lint, simulation,
+synthesis, doctor, status, or clean from buttons. Commands run through
+`python -m dflow.cli`, so the GUI uses the same configuration, backends,
+reports, and exit codes as the terminal. Output is streamed into the GUI without
+blocking the window. Tkinter and a graphical display are required.
+
 ### `dflow init <project_name>`
 
 Creates the project marker, default configuration, and standard directory tree,
@@ -233,8 +247,11 @@ remaining targets are still processed, and any failure produces exit code 1.
 
 ### `dflow status`
 
-This placeholder prints `Status is not implemented yet.` and does not inspect
-project status.
+Prints the project name and root, RTL and testbench source counts, each
+configured flow tool, and the latest result recorded for compile, lint, and
+simulation. It also reports whether reports, waveforms, and build files are
+present. Synthesis is labeled `not implemented yet`. Status is read-only and
+does not check tool availability; use `dflow doctor` for that.
 
 ## 7. Backend Contracts
 
@@ -346,7 +363,7 @@ these are generated artifacts rather than maintained source files.
 ## 10. Current Limitations
 
 - Only Verilator compile, lint, and simulation backends exist.
-- Synthesis has no execution backend, and status remains a placeholder.
+- Synthesis has no execution backend.
 - Simulation's Make command is tied to Clang/libc++ and LLVM 18 filesystem paths.
 - `doctor` checks configured tool names only; it does not validate backend
   support, source files, YAML shape, `make`, Clang, or libc++.
@@ -355,8 +372,8 @@ these are generated artifacts rather than maintained source files.
 - `logger.py`, `version.py`, and most package `__init__.py` files are empty.
 - `README.md` is empty, and no formatter or linter is configured.
 - The pytest suite covers shared results/reports, clean safety and failure
-  handling, placeholders, doctor tool deduplication, and simulation sequencing;
-  broader command/config coverage is still needed.
+  handling, project status, doctor tool deduplication, and simulation
+  sequencing; broader command/config coverage is still needed.
 - Reports overwrite previous logs for the same stage/tool.
 
 ## 11. Extension Rules

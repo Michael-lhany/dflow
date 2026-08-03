@@ -165,14 +165,65 @@ def test_lint_appends_cli_tool_options(tmp_path, monkeypatch):
     assert captured_options == ["--lint-only", "-Wall", "--Wno-fatal"]
 
 
+def test_status_summarizes_project(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    (tmp_path / "flow.yaml").write_text(
+        """project:
+    name: example
+compile:
+    tool: verilator
+lint:
+    tool: verilator
+simulation:
+    tool: verilator
+synthesis:
+    tool: yosys
+""",
+        encoding="utf-8",
+    )
+    rtl_source = tmp_path / "rtl" / "top.v"
+    rtl_source.parent.mkdir()
+    rtl_source.write_text("module top; endmodule\n", encoding="utf-8")
+    testbench_source = tmp_path / "tb" / "top_tb.sv"
+    testbench_source.parent.mkdir()
+    testbench_source.write_text("module top_tb; endmodule\n", encoding="utf-8")
 
-def test_placeholder_commands_explain_they_are_not_implemented():
-    runner = CliRunner()
+    compile_report = tmp_path / "reports" / "compile" / "verilator.log"
+    compile_report.parent.mkdir(parents=True)
+    compile_report.write_text("Return code: 0\n", encoding="utf-8")
+    lint_report = tmp_path / "reports" / "lint" / "verilator.log"
+    lint_report.parent.mkdir(parents=True)
+    lint_report.write_text("Return code: 2\n", encoding="utf-8")
+    waveform = tmp_path / "sim" / "waves" / "top.vcd"
+    waveform.parent.mkdir(parents=True)
+    waveform.write_text("waveform\n", encoding="utf-8")
+    build_file = tmp_path / "sim" / "obj_dir" / "Vtop"
+    build_file.parent.mkdir(parents=True)
+    build_file.write_text("binary\n", encoding="utf-8")
 
-    status_result = runner.invoke(app, ["status"])
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(app, ["status"], catch_exceptions=False)
 
-    assert status_result.exit_code == 0
-    assert status_result.stdout == "Status is not implemented yet.\n"
+    assert result.exit_code == 0
+    assert result.stdout.splitlines() == [
+        "Project: example",
+        f"Root: {tmp_path}",
+        "",
+        "Sources:",
+        "  RTL: 1 file",
+        "  Testbench: 1 file",
+        "",
+        "Flows:",
+        "  Compile:    verilator       last run: passed",
+        "  Lint:       verilator       last run: failed (exit code 2)",
+        "  Simulation: verilator       last run: not run",
+        "  Synthesis:  yosys           not implemented yet",
+        "",
+        "Generated artifacts:",
+        "  Reports: available",
+        "  Waveforms: available",
+        "  Build files: available",
+    ]
 
 
 def test_doctor_checks_each_unique_tool_once(monkeypatch, tmp_path, capsys):

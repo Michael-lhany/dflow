@@ -6,9 +6,10 @@
 
 ## Build, Test, and Development Commands
 
-- `python -m venv .venv && source .venv/bin/activate` creates an isolated environment.
+- `python -m venv .venv` creates an isolated environment; `source ./activate.sh` activates it.
 - `python -m pip install -e '.[dev]'` installs DFlow, pytest, and the `dflow` command for local development.
 - `dflow --help` verifies the CLI entry point and lists registered commands.
+- `dflow gui` opens the graphical command runner using the selected project.
 - `dflow doctor` checks tools configured by the nearest DFlow project's `flow.yaml`.
 - `dflow lint`, `dflow compile`, and `dflow sim` exercise flows from inside an example project; Verilator must be installed when configured.
 - Put temporary backend arguments after `--`, for example `dflow lint -- -Wall --Wno-fatal`.
