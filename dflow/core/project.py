@@ -22,6 +22,7 @@ PROJECT_DIRECTORIES = [
 GENERATED_DIRECTORIES = (
     Path("build"),
     Path("obj_dir"),
+    Path("sim/compile_obj_dir"),
     Path("sim/obj_dir"),
     Path("sim/logs"),
 )

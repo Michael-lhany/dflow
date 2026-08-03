@@ -21,6 +21,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
     removable_paths = [
         project_root / "build",
         project_root / "obj_dir",
+        project_root / "sim" / "compile_obj_dir",
         project_root / "sim" / "obj_dir",
         project_root / "sim" / "logs",
     ]
@@ -42,6 +43,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
     assert result.stdout.splitlines() == [
         "Removed build",
         "Removed obj_dir",
+        "Removed sim/compile_obj_dir",
         "Removed sim/obj_dir",
         "Removed sim/logs",
         "Cleared reports",

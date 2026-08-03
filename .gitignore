@@ -18,6 +18,7 @@ build/
 dist/
 *.egg-info/
 obj_dir/
+compile_obj_dir/
 
 # Logs
 logs/

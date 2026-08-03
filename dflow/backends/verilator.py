@@ -3,6 +3,7 @@ from pathlib import Path
 from dflow.backends.executor import run_flow_command
 from dflow.backends.result import FlowRunResult
 from dflow.config import get_flow_options
+from dflow.core.filesystem import create_directory, remove_path
 from dflow.core.project import find_rtl_sources
 from dflow.utils import is_tool_available
 
@@ -16,6 +17,7 @@ def run_verilator_rtl_stage(
     section_name: str,
     default_options: list[str],
     step_name: str,
+    output_directory: Path | None = None,
 ) -> FlowRunResult | None:
     """Run a single-step Verilator flow against project RTL sources."""
     if not is_tool_available(VERILATOR):
@@ -31,6 +33,17 @@ def run_verilator_rtl_stage(
         return None
 
     options = get_flow_options(flow_config, section_name, default_options)
-    command = [VERILATOR, *options, *map(str, rtl_sources)]
+    output_options: list[str] = []
+    if output_directory:
+        remove_path(output_directory, project_root)
+        create_directory(output_directory)
+        output_options = ["--Mdir", str(output_directory)]
+
+    command = [
+        VERILATOR,
+        *options,
+        *output_options,
+        *map(str, rtl_sources),
+    ]
     step = run_flow_command(command, project_root, step_name)
     return FlowRunResult(tool_name=VERILATOR, steps=[step])

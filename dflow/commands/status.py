@@ -83,7 +83,12 @@ def status() -> None:
 
     has_build_files = any(
         _has_files(project_root / path)
-        for path in (Path("build"), Path("obj_dir"), Path("sim/obj_dir"))
+        for path in (
+            Path("build"),
+            Path("obj_dir"),
+            Path("sim/compile_obj_dir"),
+            Path("sim/obj_dir"),
+        )
     )
     artifacts = (
         ("Reports", _has_files(project_root / "reports")),
