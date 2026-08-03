@@ -29,8 +29,9 @@ User -> Typer command or Tkinter GUI -> project/config helpers -> backend dispat
 - `dflow/utils.py` checks executable availability on `PATH`.
 
 Compile, lint, and simulation have Verilator backends, and synthesis has a
-generic Yosys backend. Clean removes generated artifacts, while status
-summarizes project sources, flows, reports, and generated artifacts.
+Yosys backend with optional Liberty cell mapping. Clean removes generated
+artifacts, while status summarizes project sources, flows, reports, and
+generated artifacts.
 
 ## 2. Repository Layout
 
@@ -168,7 +169,11 @@ Recognized fields are:
 | `compile` | `tool`, `options` | Backend selection and Verilator arguments |
 | `lint` | `tool`, `options` | Backend selection and Verilator arguments |
 | `simulation` | `tool`, `options`, `top` | Backend, arguments, and top module |
-| `synthesis` | `tool`, `options`, `top` | Yosys arguments and optional top module |
+| `synthesis` | `tool`, `options`, `top`, `liberty` | Yosys arguments, top, and optional cell library |
+
+`synthesis.liberty` accepts an absolute path, a path relative to the project
+root, `~`, and environment variables such as `${PDK_ROOT}`. The expanded path
+must identify an existing file before synthesis starts.
 
 ## 6. Command Reference
 
@@ -224,9 +229,19 @@ dflow sim -- --threads 4
 ### `dflow synth [-- TOOL_OPTION...]`
 
 Finds RTL sources and dispatches the configured synthesis backend. The Yosys
-backend writes generic netlists to `build/synthesis/netlist.v` and
+backend writes netlists to `build/synthesis/netlist.v` and
 `build/synthesis/netlist.json`, then saves `reports/synthesis/yosys.log`.
 `synthesis.top` selects the top module; Yosys auto-detects it when omitted.
+When `synthesis.liberty` is configured, the netlists are mapped to cells from
+that library instead of Yosys's generic gates. For example:
+
+```yaml
+synthesis:
+    tool: yosys
+    top: counter
+    liberty: ${PDK_ROOT}/sky130A/libs.ref/sky130_fd_sc_hd/lib/<corner>.lib
+```
+
 Arguments after `--` are appended to `synthesis.options`:
 
 ```bash
@@ -338,16 +353,21 @@ stops immediately after a failed step.
 ### Yosys synthesis
 
 The synthesis backend requires `yosys` on `PATH` and at least one RTL source.
-It removes stale files under `build/synthesis/`, recreates that directory, and
-runs a single Yosys process. The generated script reads RTL as SystemVerilog,
-runs `synth -top <top>` or `synth -auto-top`, then writes portable Verilog and
-JSON netlists. `synthesis.options` and CLI arguments are passed as Yosys process
-options before `-p`.
+It validates an optional Liberty path, removes stale files under
+`build/synthesis/`, recreates that directory, and runs one Yosys process. The
+generated script reads RTL as SystemVerilog and selects the configured or
+automatically detected top module.
 
-This generic flow does not target an FPGA family or ASIC standard-cell library,
-so it does not consume timing or pin constraints. The generated `constraints/`
-directory remains reserved for a future technology-specific backend; adding an
-unused SDC file now would incorrectly imply that timing is being enforced.
+Without a Liberty file, the backend runs generic `synth`. With one, it runs
+`synth -noabc`, `dfflibmap -liberty`, `abc -liberty`, `clean`, and
+`stat -liberty` before writing Verilog and JSON netlists. This maps sequential
+and combinational logic to cells from the selected library and reports cell
+area data. `synthesis.options` and CLI arguments remain Yosys process options.
+
+The generated `constraints/` directory remains reserved for future timing and
+pin constraints. Liberty mapping uses real cells, but DFlow does not yet pass
+an ABC delay target, ABC driving-cell/load constraints, SDC timing constraints,
+or physical placement information.
 
 ## 8. Reports and Generated Artifacts
 
@@ -386,9 +406,8 @@ these are generated artifacts rather than maintained source files.
 
 ## 10. Current Limitations
 
-- Synthesis currently produces only generic Yosys netlists; FPGA-family and
-  ASIC-library mapping, timing constraints, and pin constraints are not
-  implemented.
+- Yosys supports Liberty cell mapping, but FPGA-family flows, ABC delay/load
+  constraints, SDC timing constraints, and physical design are not implemented.
 - Simulation's Make command is tied to Clang/libc++ and LLVM 18 filesystem paths.
 - `doctor` checks configured tool names only; it does not validate backend
   support, source files, YAML shape, `make`, Clang, or libc++.
