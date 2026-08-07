@@ -185,7 +185,9 @@ temporary backend arguments, and run init, compile, lint, simulation,
 synthesis, doctor, status, or clean from buttons. Commands run through
 `python -m dflow.cli`, so the GUI uses the same configuration, backends,
 reports, and exit codes as the terminal. Output is streamed into the GUI without
-blocking the window. Tkinter and a graphical display are required.
+blocking the window. The **Open Wave** button opens the newest existing VCD in
+GTKWave without rebuilding or rerunning the simulation; tool arguments are not
+applied to that action. Tkinter and a graphical display are required.
 
 ### `dflow init <project_name>`
 
@@ -215,16 +217,31 @@ Matches the compile command flow but dispatches lint and writes
 dflow lint -- -Wall --Wno-fatal
 ```
 
-### `dflow sim [-- TOOL_OPTION...]`
+### `dflow sim [--wave | --wave-only] [-- TOOL_OPTION...]`
 
 Finds the project, loads configuration, and calls the simulation dispatcher. It
-writes `reports/sim/<tool>.log`, forwards each completed step's output with
+writes a timestamped `reports/sim/<tool>_<timestamp>.log`, forwards each
+completed step's output with
 headings, prints success only for return code 0, and exits with the final step's
 code. A missing or unsupported backend/precondition exits with code 1.
 Arguments after `--` are appended to the configured/default simulation options:
 
 ```bash
 dflow sim -- --threads 4
+```
+
+Pass `--wave` (or `-w`) to open the newest VCD under `sim/waves/` in
+GTKWave after a successful simulation. GTKWave is launched as a detached
+process, so DFlow exits while the viewer remains open:
+
+```bash
+dflow sim --wave
+```
+
+Use `--wave-only` to open the newest existing VCD without running simulation:
+
+```bash
+dflow sim --wave-only
 ```
 
 ### `dflow synth [-- TOOL_OPTION...]`
@@ -376,9 +393,11 @@ or physical placement information.
 
 ## 8. Reports and Generated Artifacts
 
-`save_flow_report()` creates `reports/<stage>/<tool>.log` and overwrites the same
-tool/stage log on later runs. For every completed step, the report records its
-name, command, return code, and non-empty `STDOUT`/`STDERR` sections.
+`save_flow_report()` normally creates `reports/<stage>/<tool>.log` and
+overwrites the same tool/stage log on later runs. Simulation instead creates a
+new `reports/sim/<tool>_<timestamp>.log` for every run, preserving its report
+history. For every completed step, the report records its name, command, return
+code, and non-empty `STDOUT`/`STDERR` sections.
 
 Compile, lint, simulation, and synthesis commands save reports for successful
 and nonzero tool results. They do not create a report when dispatch returns

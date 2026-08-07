@@ -10,6 +10,7 @@ from dflow.core.project import find_project_root, save_flow_report
 
 
 BackendRunner = Callable[[Path, dict], FlowRunResult | None]
+SuccessAction = Callable[[Path], bool]
 
 
 def _print_step_output(step: FlowStepResult, show_heading: bool) -> None:
@@ -33,6 +34,8 @@ def run_stage_command(
     backend_runner: BackendRunner,
     success_message: str,
     tool_options: list[str] | None = None,
+    success_action: SuccessAction | None = None,
+    timestamp_report: bool = False,
 ) -> None:
     """Run a configured backend and handle its common CLI lifecycle."""
     project_root = find_project_root()
@@ -47,7 +50,13 @@ def run_stage_command(
     if result is None:
         raise typer.Exit(code=1)
 
-    save_flow_report(project_root, stage_name, result.tool_name, result.steps)
+    save_flow_report(
+        project_root,
+        stage_name,
+        result.tool_name,
+        result.steps,
+        timestamped=timestamp_report,
+    )
 
     show_headings = len(result.steps) > 1
     for step in result.steps:
@@ -55,5 +64,7 @@ def run_stage_command(
 
     if result.returncode == 0:
         print(success_message.format(tool_name=result.tool_name))
+        if success_action is not None and not success_action(project_root):
+            raise typer.Exit(code=1)
 
     raise typer.Exit(code=result.returncode)

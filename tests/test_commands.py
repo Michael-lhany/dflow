@@ -5,6 +5,7 @@ from dflow.cli import app
 from dflow.commands import clean as clean_module
 from dflow.commands import doctor as doctor_module
 from dflow.commands import lint as lint_module
+from dflow.commands import sim as sim_module
 from dflow.commands import synth as synth_module
 from dflow.config import get_flow_options
 from dflow.core.project import PROJECT_MARKER
@@ -201,6 +202,78 @@ def test_synth_appends_cli_tool_options(tmp_path, monkeypatch):
     assert (tmp_path / "reports" / "synthesis" / "yosys.log").is_file()
 
 
+def test_sim_wave_opens_viewer_after_success(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    (tmp_path / "flow.yaml").write_text(
+        "simulation:\n    tool: verilator\n",
+        encoding="utf-8",
+    )
+    opened_projects = []
+
+    def fake_run_simulation(project_root, flow_config):
+        return FlowRunResult(
+            tool_name="verilator",
+            steps=[
+                FlowStepResult(
+                    name="Simulation",
+                    command=["Vtop"],
+                    returncode=0,
+                )
+            ],
+        )
+
+    def fake_open_latest_waveform(project_root, modified_since_ns=None):
+        opened_projects.append(project_root)
+        assert isinstance(modified_since_ns, int)
+        return True
+
+    monkeypatch.setattr(sim_module, "run_simulation", fake_run_simulation)
+    monkeypatch.setattr(
+        sim_module,
+        "open_latest_waveform",
+        fake_open_latest_waveform,
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(app, ["sim", "--wave"])
+
+    assert result.exit_code == 0
+    assert opened_projects == [tmp_path]
+    assert result.stdout == "Simulation passed with verilator.\n"
+    simulation_reports = list((tmp_path / "reports" / "sim").glob("*.log"))
+    assert len(simulation_reports) == 1
+    assert simulation_reports[0].name.startswith("verilator_")
+
+
+def test_sim_wave_only_opens_existing_wave_without_simulating(
+    tmp_path,
+    monkeypatch,
+):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    opened_projects = []
+
+    def fail_if_simulation_runs(project_root, flow_config):
+        raise AssertionError("simulation should not run")
+
+    def fake_open_latest_waveform(project_root, modified_since_ns=None):
+        opened_projects.append(project_root)
+        assert modified_since_ns is None
+        return True
+
+    monkeypatch.setattr(sim_module, "run_simulation", fail_if_simulation_runs)
+    monkeypatch.setattr(
+        sim_module,
+        "open_latest_waveform",
+        fake_open_latest_waveform,
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(app, ["sim", "--wave-only"])
+
+    assert result.exit_code == 0
+    assert opened_projects == [tmp_path]
+
+
 def test_status_summarizes_project(tmp_path, monkeypatch):
     (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
     (tmp_path / "flow.yaml").write_text(
@@ -230,6 +303,14 @@ synthesis:
     lint_report = tmp_path / "reports" / "lint" / "verilator.log"
     lint_report.parent.mkdir(parents=True)
     lint_report.write_text("Return code: 2\n", encoding="utf-8")
+    simulation_report = (
+        tmp_path
+        / "reports"
+        / "sim"
+        / "verilator_2026-08-07_18-30-00_000000+0300.log"
+    )
+    simulation_report.parent.mkdir(parents=True)
+    simulation_report.write_text("Return code: 0\n", encoding="utf-8")
     waveform = tmp_path / "sim" / "waves" / "top.vcd"
     waveform.parent.mkdir(parents=True)
     waveform.write_text("waveform\n", encoding="utf-8")
@@ -252,7 +333,7 @@ synthesis:
         "Flows:",
         "  Compile:    verilator       last run: passed",
         "  Lint:       verilator       last run: failed (exit code 2)",
-        "  Simulation: verilator       last run: not run",
+        "  Simulation: verilator       last run: passed",
         "  Synthesis:  yosys           last run: not run",
         "",
         "Generated artifacts:",

@@ -41,6 +41,37 @@ def test_build_cli_command_adds_synthesis_arguments():
     ]
 
 
+def test_build_cli_command_places_command_arguments_before_tool_separator():
+    assert gui_module.build_cli_command(
+        "sim",
+        "--threads 4",
+        ["--wave"],
+    ) == [
+        sys.executable,
+        "-m",
+        "dflow.cli",
+        "sim",
+        "--wave",
+        "--",
+        "--threads",
+        "4",
+    ]
+
+
+def test_build_cli_command_can_open_wave_without_tool_arguments():
+    assert gui_module.build_cli_command(
+        "sim",
+        "",
+        ["--wave-only"],
+    ) == [
+        sys.executable,
+        "-m",
+        "dflow.cli",
+        "sim",
+        "--wave-only",
+    ]
+
+
 def test_gui_command_launches_interface(monkeypatch):
     launched = False
 

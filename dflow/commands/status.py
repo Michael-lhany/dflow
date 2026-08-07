@@ -9,9 +9,28 @@ from dflow.core.project import (
 
 
 def _report_status(project_root: Path, stage: str, tool_name: str) -> str:
-    report_path = project_root / "reports" / stage / f"{tool_name}.log"
-    if not report_path.is_file():
+    report_directory = project_root / "reports" / stage
+    if not report_directory.is_dir():
         return "not run"
+
+    report_prefix = f"{tool_name}_"
+    report_paths = [
+        path
+        for path in report_directory.iterdir()
+        if path.is_file()
+        and (
+            path.name == f"{tool_name}.log"
+            or path.name.startswith(report_prefix)
+        )
+        and path.suffix == ".log"
+    ]
+    if not report_paths:
+        return "not run"
+
+    report_path = max(
+        report_paths,
+        key=lambda path: (path.stat().st_mtime_ns, path.name),
+    )
 
     try:
         report_lines = report_path.read_text(encoding="utf-8").splitlines()

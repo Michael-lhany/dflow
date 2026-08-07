@@ -21,9 +21,15 @@ PROJECT_COMMANDS = (
 OPTION_COMMANDS = {"compile", "lint", "sim", "synth"}
 
 
-def build_cli_command(command: str, tool_options: str = "") -> list[str]:
+def build_cli_command(
+    command: str,
+    tool_options: str = "",
+    command_arguments: list[str] | None = None,
+) -> list[str]:
     """Build the DFlow subprocess command used by the GUI."""
     cli_command = [sys.executable, "-m", "dflow.cli", command]
+    if command_arguments:
+        cli_command.extend(command_arguments)
     if command in OPTION_COMMANDS and tool_options.strip():
         cli_command.extend(["--", *shlex.split(tool_options)])
     return cli_command
@@ -132,6 +138,17 @@ class DFlowGui:
             row=1,
             column=3,
         )
+        self._add_button(
+            commands_frame,
+            "Open Wave",
+            lambda: self._run_command(
+                "sim",
+                ["--wave-only"],
+                include_tool_options=False,
+            ),
+            row=2,
+            column=0,
+        )
 
         output_frame = ttk.LabelFrame(container, text="Output", padding=10)
         output_frame.grid(row=5, column=0, sticky="nsew")
@@ -189,7 +206,10 @@ class DFlowGui:
             self._run_command("clean")
 
     def _run_command(
-        self, command: str, extra_arguments: list[str] | None = None
+        self,
+        command: str,
+        extra_arguments: list[str] | None = None,
+        include_tool_options: bool = True,
     ) -> None:
         if self.running:
             return
@@ -204,15 +224,17 @@ class DFlowGui:
             return
 
         try:
-            cli_command = build_cli_command(command, self.tool_options.get())
+            tool_options = self.tool_options.get() if include_tool_options else ""
+            cli_command = build_cli_command(
+                command,
+                tool_options,
+                extra_arguments,
+            )
         except ValueError as error:
             messagebox.showerror(
                 "Invalid Tool Arguments", str(error), parent=self.root
             )
             return
-
-        if extra_arguments:
-            cli_command.extend(extra_arguments)
 
         self.running = True
         self._set_buttons_enabled(False)

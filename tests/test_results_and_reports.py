@@ -1,3 +1,5 @@
+import re
+
 from dflow.backends.result import FlowRunResult, FlowStepResult
 from dflow.core.project import save_flow_report
 
@@ -47,3 +49,30 @@ def test_report_records_every_step(tmp_path):
     assert "Step 2: Simulation" in report
     assert "Return code: 1" in report
     assert "simulation failed" in report
+
+
+def test_timestamped_reports_preserve_previous_runs(tmp_path):
+    steps = [FlowStepResult("Simulation", ["Vtop"], 0)]
+
+    first_report = save_flow_report(
+        tmp_path,
+        "sim",
+        "verilator",
+        steps,
+        timestamped=True,
+    )
+    second_report = save_flow_report(
+        tmp_path,
+        "sim",
+        "verilator",
+        steps,
+        timestamped=True,
+    )
+
+    assert first_report != second_report
+    assert first_report.is_file()
+    assert second_report.is_file()
+    assert re.fullmatch(
+        r"verilator_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{6}[+-]\d{4}\.log",
+        first_report.name,
+    )

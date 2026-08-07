@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, NamedTuple, Sequence
 
@@ -117,10 +118,23 @@ def save_flow_report(
     report_name: str,
     tool_name: str,
     steps: Sequence["FlowStepResult"],
+    timestamped: bool = False,
 ) -> Path:
     """Persist flow output under the project's reports directory."""
     report_dir = project_root / "reports" / report_name
-    report_path = report_dir / f"{tool_name}.log"
+    if timestamped:
+        timestamp = datetime.now().astimezone().strftime(
+            "%Y-%m-%d_%H-%M-%S_%f%z"
+        )
+        report_path = report_dir / f"{tool_name}_{timestamp}.log"
+        collision_index = 1
+        while report_path.exists():
+            report_path = report_dir / (
+                f"{tool_name}_{timestamp}_{collision_index}.log"
+            )
+            collision_index += 1
+    else:
+        report_path = report_dir / f"{tool_name}.log"
     create_directory(report_dir)
 
     report_lines: list[str] = []
