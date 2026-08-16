@@ -25,6 +25,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
         project_root / "sim" / "compile_obj_dir",
         project_root / "sim" / "obj_dir",
         project_root / "sim" / "logs",
+        project_root / "openlane" / "runs",
     ]
     preserved_directories = [
         project_root / "reports",
@@ -47,6 +48,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
         "Removed sim/compile_obj_dir",
         "Removed sim/obj_dir",
         "Removed sim/logs",
+        "Removed openlane/runs",
         "Cleared reports",
         "Cleared sim/waves",
     ]
@@ -81,6 +83,74 @@ def test_clean_dry_run_does_not_remove_artifacts(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert result.stdout == "Would remove obj_dir\n"
     assert artifact.exists()
+
+
+def test_clean_only_removes_selected_categories(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    simulation_artifact = tmp_path / "sim" / "obj_dir" / "simulation.o"
+    waveform = tmp_path / "sim" / "waves" / "top.vcd"
+    report = tmp_path / "reports" / "sim" / "verilator.log"
+    for artifact in (simulation_artifact, waveform, report):
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text("generated\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(app, ["clean", "--only", "simulation"])
+
+    assert result.exit_code == 0
+    assert result.stdout == "Removed sim/obj_dir\n"
+    assert not simulation_artifact.exists()
+    assert waveform.exists()
+    assert report.exists()
+
+
+def test_clean_excludes_selected_categories(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    build_artifact = tmp_path / "build" / "netlist.v"
+    waveform = tmp_path / "sim" / "waves" / "top.vcd"
+    report = tmp_path / "reports" / "sim" / "verilator.log"
+    for artifact in (build_artifact, waveform, report):
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text("generated\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        app,
+        ["clean", "--exclude", "waveforms", "--exclude", "reports"],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == "Removed build\n"
+    assert not build_artifact.exists()
+    assert waveform.exists()
+    assert report.exists()
+
+
+def test_clean_rejects_unknown_category(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(app, ["clean", "--only", "unknown"])
+
+    assert result.exit_code == 2
+    assert "unknown cleanup target(s): unknown" in result.output
+
+
+def test_clean_exclusion_wins_over_only(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    waveform = tmp_path / "sim" / "waves" / "top.vcd"
+    waveform.parent.mkdir(parents=True)
+    waveform.write_text("generated\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        ["clean", "--only", "waveforms", "--exclude", "waveforms"],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == "No cleanup categories selected.\n"
+    assert waveform.exists()
 
 
 def test_clean_refuses_to_follow_parent_symlink(tmp_path, monkeypatch):
@@ -335,6 +405,7 @@ synthesis:
         "  Lint:       verilator       last run: failed (exit code 2)",
         "  Simulation: verilator       last run: passed",
         "  Synthesis:  yosys           last run: not run",
+        "  ASIC:       not configured  not run",
         "",
         "Generated artifacts:",
         "  Reports: available",
@@ -375,5 +446,27 @@ def test_doctor_checks_each_unique_tool_once(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out.splitlines() == [
         "verilator: found",
         "yosys: found",
+        "All required tools are available.",
+    ]
+
+
+def test_doctor_accepts_nix_backed_openlane(monkeypatch, tmp_path, capsys):
+    flow_config = {"asic": {"tool": "openlane"}}
+    monkeypatch.setattr(doctor_module, "find_project_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        doctor_module,
+        "load_flow_config",
+        lambda project_root: flow_config,
+    )
+    monkeypatch.setattr(
+        doctor_module,
+        "is_openlane_runtime_available",
+        lambda project_root, config: True,
+    )
+
+    doctor_module.doctor()
+
+    assert capsys.readouterr().out.splitlines() == [
+        "openlane: found",
         "All required tools are available.",
     ]

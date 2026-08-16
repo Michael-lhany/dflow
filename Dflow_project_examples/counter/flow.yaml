@@ -14,3 +14,9 @@ simulation:
 synthesis:
     tool: yosys
     top: counter
+
+asic:
+    tool: openlane
+    executable: /nix/store/d81rkxkj7zm9bi8gj44ws7cxi7vhq6yw-python3.11-openlane-2.3.10/bin/openlane
+    openlane_root: ~/openlane/openlane2
+    config: openlane/config.json

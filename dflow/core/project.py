@@ -20,16 +20,25 @@ PROJECT_DIRECTORIES = [
     "sim/waves",
 ]
 
+CLEAN_CATEGORIES = (
+    "build",
+    "compile",
+    "simulation",
+    "waveforms",
+    "reports",
+    "asic",
+)
 GENERATED_DIRECTORIES = (
-    Path("build"),
-    Path("obj_dir"),
-    Path("sim/compile_obj_dir"),
-    Path("sim/obj_dir"),
-    Path("sim/logs"),
+    ("build", Path("build")),
+    ("compile", Path("obj_dir")),
+    ("compile", Path("sim/compile_obj_dir")),
+    ("simulation", Path("sim/obj_dir")),
+    ("simulation", Path("sim/logs")),
+    ("asic", Path("openlane/runs")),
 )
 GENERATED_CONTENT_DIRECTORIES = (
-    Path("reports"),
-    Path("sim/waves"),
+    ("reports", Path("reports")),
+    ("waveforms", Path("sim/waves")),
 )
 
 PROJECT_MARKER = ".dflow"
@@ -161,14 +170,15 @@ def save_flow_report(
 
 
 class CleanTarget(NamedTuple):
+    category: str
     path: Path
     preserve_directory: bool
 
 
 def iter_generated_paths(project_root: Path) -> Iterator[CleanTarget]:
-    """Yield generated paths and whether clean should preserve the directory."""
-    for relative_path in GENERATED_DIRECTORIES:
-        yield CleanTarget(project_root / relative_path, False)
+    """Yield categorized generated paths and their removal behavior."""
+    for category, relative_path in GENERATED_DIRECTORIES:
+        yield CleanTarget(category, project_root / relative_path, False)
 
-    for relative_path in GENERATED_CONTENT_DIRECTORIES:
-        yield CleanTarget(project_root / relative_path, True)
+    for category, relative_path in GENERATED_CONTENT_DIRECTORIES:
+        yield CleanTarget(category, project_root / relative_path, True)

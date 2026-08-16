@@ -14,6 +14,9 @@ SuccessAction = Callable[[Path], bool]
 
 
 def _print_step_output(step: FlowStepResult, show_heading: bool) -> None:
+    if step.output_streamed:
+        return
+
     if step.stdout:
         if show_heading:
             print(f"=== {step.name} output ===")

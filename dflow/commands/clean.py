@@ -7,7 +7,27 @@ from dflow.core.filesystem import (
     remove_path,
     validate_removal_path,
 )
-from dflow.core.project import find_project_root, iter_generated_paths
+from dflow.core.project import (
+    CLEAN_CATEGORIES,
+    find_project_root,
+    iter_generated_paths,
+)
+
+
+def _selected_categories(
+    only: list[str] | None,
+    exclude: list[str] | None,
+) -> set[str]:
+    requested = set(only or CLEAN_CATEGORIES)
+    excluded = set(exclude or [])
+    unknown = (requested | excluded) - set(CLEAN_CATEGORIES)
+    if unknown:
+        choices = ", ".join(CLEAN_CATEGORIES)
+        invalid = ", ".join(sorted(unknown))
+        raise typer.BadParameter(
+            f"unknown cleanup target(s): {invalid}. Choose from: {choices}."
+        )
+    return requested - excluded
 
 
 def clean(
@@ -16,13 +36,40 @@ def clean(
         "--dry-run",
         help="Show generated paths without removing them.",
     ),
+    only: list[str] | None = typer.Option(
+        None,
+        "--only",
+        "-o",
+        help=(
+            "Clean only this category; repeat as needed. Choices: "
+            + ", ".join(CLEAN_CATEGORIES)
+            + "."
+        ),
+    ),
+    exclude: list[str] | None = typer.Option(
+        None,
+        "--exclude",
+        "-x",
+        help=(
+            "Preserve this category; repeat as needed. Choices: "
+            + ", ".join(CLEAN_CATEGORIES)
+            + "."
+        ),
+    ),
 ):
     """Remove generated build, simulation, and report artifacts."""
     project_root = find_project_root()
+    selected_categories = _selected_categories(only, exclude)
+    if not selected_categories:
+        print("No cleanup categories selected.")
+        return
+
     changed_anything = False
     failed = False
 
     for target in iter_generated_paths(project_root):
+        if target.category not in selected_categories:
+            continue
         try:
             relative_path = target.path.relative_to(project_root)
         except ValueError:

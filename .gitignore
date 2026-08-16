@@ -13,16 +13,35 @@ venv/
 # Pytest
 .pytest_cache/
 
-# Build
+# Python package build
 build/
 dist/
 *.egg-info/
+
+# DFlow generated outputs
+# Reports from compile, lint, simulation, synthesis, and ASIC commands
+reports/
+
+# Verilator compile and simulation output
 obj_dir/
 compile_obj_dir/
+**/sim/logs/
+
+# Simulation waveforms
+**/sim/waves/
+*.vcd
+*.fst
+*.lxt
+*.lxt2
+*.ghw
+
+# Yosys synthesis output is written below build/
+
+# OpenLane run databases, logs, reports, and final physical views
+**/openlane/runs/
 
 # Logs
 logs/
-reports/
 *.log
 
 # OS

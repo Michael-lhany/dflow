@@ -89,6 +89,7 @@ def status() -> None:
         ("Lint", "lint"),
         ("Simulation", "simulation"),
         ("Synthesis", "synthesis"),
+        ("ASIC", "asic"),
     ):
         tool_name = get_flow_tool(flow_config, stage)
         displayed_tool = tool_name or "not configured"
@@ -107,6 +108,7 @@ def status() -> None:
             Path("obj_dir"),
             Path("sim/compile_obj_dir"),
             Path("sim/obj_dir"),
+            Path("openlane/runs"),
         )
     )
     artifacts = (

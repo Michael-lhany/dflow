@@ -1,5 +1,6 @@
 import typer
 
+from dflow.commands.asic import asic
 from dflow.commands.init import init
 from dflow.commands.compile import compile
 from dflow.commands.synth import synth
@@ -23,6 +24,7 @@ app.command()(status)
 app.command()(doctor)
 app.command()(clean)
 app.command()(gui)
+app.command()(asic)
 
 if __name__ == "__main__":
     app()

@@ -1,5 +1,6 @@
 import sys
 
+import pytest
 from typer.testing import CliRunner
 
 from dflow import gui as gui_module
@@ -41,6 +42,13 @@ def test_build_cli_command_adds_synthesis_arguments():
     ]
 
 
+def test_build_cli_command_adds_asic_arguments():
+    assert gui_module.build_cli_command("asic", "--condensed")[-2:] == [
+        "--",
+        "--condensed",
+    ]
+
+
 def test_build_cli_command_places_command_arguments_before_tool_separator():
     assert gui_module.build_cli_command(
         "sim",
@@ -70,6 +78,52 @@ def test_build_cli_command_can_open_wave_without_tool_arguments():
         "sim",
         "--wave-only",
     ]
+
+
+def test_build_asic_tool_options_combines_page_controls():
+    assert gui_module.build_asic_tool_options(
+        condensed=True,
+        jobs="4",
+        start_step="Yosys.Synthesis",
+        end_step="OpenROAD.GeneratePDN",
+        extra_options='--run-tag "floorplan test"',
+    ) == (
+        "--condensed -j 4 --from Yosys.Synthesis --to "
+        "OpenROAD.GeneratePDN --run-tag 'floorplan test'"
+    )
+
+
+@pytest.mark.parametrize("jobs", ["0", "-1", "four"])
+def test_build_asic_tool_options_rejects_invalid_jobs(jobs):
+    with pytest.raises(ValueError, match="positive integer"):
+        gui_module.build_asic_tool_options(
+            condensed=False,
+            jobs=jobs,
+        )
+
+
+def test_build_clean_arguments_uses_only_for_partial_selection():
+    assert gui_module.build_clean_arguments(
+        ["simulation", "waveforms"],
+        dry_run=True,
+    ) == [
+        "--dry-run",
+        "--only",
+        "simulation",
+        "--only",
+        "waveforms",
+    ]
+
+
+def test_build_clean_arguments_uses_default_for_all_categories():
+    assert gui_module.build_clean_arguments(
+        list(gui_module.CLEAN_CATEGORIES),
+    ) == []
+
+
+def test_build_clean_arguments_requires_a_selection():
+    with pytest.raises(ValueError, match="at least one"):
+        gui_module.build_clean_arguments([])
 
 
 def test_gui_command_launches_interface(monkeypatch):

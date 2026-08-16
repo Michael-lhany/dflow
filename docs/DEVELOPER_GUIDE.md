@@ -28,10 +28,10 @@ User -> Typer command or Tkinter GUI -> project/config helpers -> backend dispat
 - `dflow/config.py` normalizes `flow.yaml` data.
 - `dflow/utils.py` checks executable availability on `PATH`.
 
-Compile, lint, and simulation have Verilator backends, and synthesis has a
-Yosys backend with optional Liberty cell mapping. Clean removes generated
-artifacts, while status summarizes project sources, flows, reports, and
-generated artifacts.
+Compile, lint, and simulation have Verilator backends, synthesis has a Yosys
+backend with optional Liberty cell mapping, and the ASIC stage drives OpenLane
+2 directly or through a Nix flake. Clean removes generated artifacts, while
+status summarizes project sources, flows, reports, and generated artifacts.
 
 ## 2. Repository Layout
 
@@ -42,6 +42,8 @@ generated artifacts.
 ├── pyproject.toml                    package metadata and console entry point
 ├── docs/
 │   ├── DEVELOPER_GUIDE.md            implementation reference
+│   ├── GUI_GUIDE.md                  complete graphical-interface guide
+│   ├── OPENLANE_GUIDE.md             OpenLane user guide
 │   ├── VERILATOR_ARGUMENTS.md        categorized Verilator option reference
 │   └── YOSYS_ARGUMENTS.md            Yosys and mapping option reference
 ├── tests/                            pytest suite
@@ -61,7 +63,8 @@ generated artifacts.
 │       ├── compile/                  Verilator compile dispatcher/backend
 │       ├── lint/                     Verilator lint dispatcher/backend
 │       ├── simulation/               Verilator simulation dispatcher/backend
-│       └── synthesis/                Yosys synthesis dispatcher/backend
+│       ├── synthesis/                Yosys synthesis dispatcher/backend
+│       └── asic/                     OpenLane RTL-to-GDS dispatcher/backend
 └── Dflow_project_examples/counter/
     ├── .dflow
     ├── flow.yaml
@@ -88,8 +91,8 @@ dflow = "dflow.cli:app"
 ```
 
 `dflow/cli.py` is the only command-registration point. It registers, in order,
-`init`, `compile`, `synth`, `lint`, `sim`, `status`, `doctor`, `clean`, and
-`gui`.
+`init`, `compile`, `synth`, `lint`, `sim`, `status`, `doctor`, `clean`, `gui`,
+and `asic`.
 It can also run directly through `python -m dflow.cli`. Install a development
 checkout with `python -m pip install -e '.[dev]'`.
 From the repository root, `source ./activate.sh` activates the existing `.venv`
@@ -171,23 +174,46 @@ Recognized fields are:
 | `lint` | `tool`, `options` | Backend selection and Verilator arguments |
 | `simulation` | `tool`, `options`, `top` | Backend, arguments, and top module |
 | `synthesis` | `tool`, `options`, `top`, `liberty` | Yosys arguments, top, and optional cell library |
+| `asic` | `tool`, `config`, `executable`, `openlane_root`, `options` | OpenLane design config and direct/Nix execution |
 
 `synthesis.liberty` accepts an absolute path, a path relative to the project
 root, `~`, and environment variables such as `${PDK_ROOT}`. The expanded path
 must identify an existing file before synthesis starts.
 
+OpenLane-specific optional `asic` keys are `flow`, `pdk`, `scl`, `pdk_root`,
+and `run_tag`. They map to the corresponding OpenLane 2 CLI flags. `executable`
+can select an already realized Nix-store wrapper without evaluating the flake.
+Paths accept
+absolute values, project-relative values, `~`, and environment variables. A
+typical Nix-backed setup is:
+
+```yaml
+asic:
+    tool: openlane
+    openlane_root: ~/openlane/openlane2
+    config: openlane/config.json
+```
+
+The design config remains a native OpenLane JSON, YAML, or Tcl file. The
+Classic flow normally needs at least `DESIGN_NAME`, `VERILOG_FILES`,
+`CLOCK_PORT`, and `CLOCK_PERIOD`.
+
 ## 6. Command Reference
 
 ### `dflow gui`
 
-Opens the Tkinter interface. Select a project directory, optionally enter
-temporary backend arguments, and run init, compile, lint, simulation,
-synthesis, doctor, status, or clean from buttons. Commands run through
-`python -m dflow.cli`, so the GUI uses the same configuration, backends,
-reports, and exit codes as the terminal. Output is streamed into the GUI without
-blocking the window. The **Open Wave** button opens the newest existing VCD in
-GTKWave without rebuilding or rerunning the simulation; tool arguments are not
-applied to that action. Tkinter and a graphical display are required.
+Opens the tabbed Tkinter interface. A shared project selector sits above pages
+for Project, Compile, Lint, Simulation, Synthesis, ASIC, Status, Doctor, and
+Clean. Each executing flow keeps an independent argument field so options do
+not leak between tools. The Simulation page can open a new waveform after a run
+or open the newest existing VCD without simulating. The ASIC page provides
+condensed output, parallel-job, start-step, end-step, extra-option, lint-only,
+KLayout, and OpenROAD controls.
+
+Commands run through `python -m dflow.cli`, so the GUI uses the same
+configuration, backends, reports, and exit codes as the terminal. Output is
+streamed into a shared console without blocking the window. Tkinter and a
+graphical display are required.
 
 ### `dflow init <project_name>`
 
@@ -266,20 +292,66 @@ Arguments after `--` are appended to `synthesis.options`:
 dflow synth -- -Q
 ```
 
+### `dflow asic [-- OPENLANE_OPTION...]`
+
+Runs an OpenLane 2 RTL-to-GDS flow using the `asic` section of `flow.yaml`.
+DFlow invokes `openlane` directly when it is on `PATH`. Otherwise,
+`asic.openlane_root` must point to an OpenLane 2 checkout containing
+`flake.nix`; DFlow invokes it through `nix develop` automatically.
+
+The default design configuration path is `openlane/config.json`. OpenLane's
+Classic flow is used unless `asic.flow` or the design config selects another
+flow. Extra CLI flags are forwarded after `--`:
+
+```bash
+dflow asic -- --condensed --show-progress-bar
+```
+
+OpenLane creates timestamped run directories beneath the design configuration
+directory's `runs/` folder. DFlow also preserves a timestamped wrapper report
+under `reports/asic/openlane_<timestamp>.log`.
+
 ### `dflow doctor`
 
-Collects unique, non-empty tool names from compile, lint, simulation, and
-synthesis in that order. Each executable is checked once. It prints
+Collects unique, non-empty tool names from compile, lint, simulation,
+synthesis, and ASIC in that order. Each executable is checked once. OpenLane is
+considered available when it is on `PATH`, or when Nix and the configured
+OpenLane flake are present. It prints
 `<tool>: found|missing`, exits 1 if any are missing, and otherwise prints a
 success message. It does not validate backend support or simulation's additional
 `make`/Clang requirements.
 
-### `dflow clean [--dry-run]`
+### `dflow clean [--dry-run] [--only CATEGORY] [--exclude CATEGORY]`
 
-Finds the project root and removes `build/`, Verilator output at
-`sim/compile_obj_dir/` and `sim/obj_dir/`, the legacy root `obj_dir/`, and the
-obsolete `sim/logs/` directory. It clears the contents of `reports/` and
-`sim/waves/` while preserving those scaffold directories.
+Finds the project root and removes generated artifacts. With no category
+options, it removes `build/`, Verilator output at `sim/compile_obj_dir/` and
+`sim/obj_dir/`, the legacy root `obj_dir/`, obsolete `sim/logs/`, and
+`openlane/runs/`. It clears the contents of `reports/` and `sim/waves/` while
+preserving those two scaffold directories.
+
+Cleanup targets are grouped as follows:
+
+| Category | Generated paths |
+| --- | --- |
+| `build` | `build/` |
+| `compile` | `obj_dir/`, `sim/compile_obj_dir/` |
+| `simulation` | `sim/obj_dir/`, `sim/logs/` |
+| `waveforms` | Contents of `sim/waves/` |
+| `reports` | Contents of `reports/` |
+| `asic` | `openlane/runs/` |
+
+`--only/-o` is repeatable and limits cleanup to named categories.
+`--exclude/-x` is also repeatable and preserves named categories; exclusions
+win when combined with `--only`. Examples:
+
+```bash
+dflow clean --only simulation
+dflow clean -o reports -o waveforms --dry-run
+dflow clean --exclude asic --exclude reports
+```
+
+The GUI Clean page exposes the same categories as independent checkboxes, with
+Select All, Select None, preview, and confirmed cleanup actions.
 Every target is validated against the resolved project root; unsafe paths and
 parent-directory symlink escapes are refused. Failures are reported per path,
 remaining targets are still processed, and any failure produces exit code 1.
@@ -289,7 +361,7 @@ remaining targets are still processed, and any failure produces exit code 1.
 
 Prints the project name and root, RTL and testbench source counts, each
 configured flow tool, and the latest result recorded for compile, lint,
-simulation, and synthesis. It also reports whether reports, waveforms, and
+simulation, synthesis, and ASIC. It also reports whether reports, waveforms, and
 build files are present. Status is read-only and does not check tool
 availability; use `dflow doctor` for that.
 
@@ -308,7 +380,7 @@ text stdout/stderr, and returns `FlowStepResult`. It does not use a shell or
 catch process-launch errors.
 
 `commands/common.py` provides the shared lifecycle for compile, lint,
-simulation, and synthesis: project/config loading, backend invocation, report
+simulation, synthesis, and ASIC: project/config loading, backend invocation, report
 persistence, step-output forwarding, success output, and exit-code propagation.
 
 ### Dispatchers
@@ -316,7 +388,7 @@ persistence, step-output forwarding, success output, and exit-code propagation.
 Flow dispatchers may load configuration themselves when none is supplied. Each
 reads its section's `tool` and prints an error and returns `None` for missing or
 unsupported tools. Compile, lint, and simulation support Verilator; synthesis
-supports Yosys.
+supports Yosys; and ASIC supports OpenLane.
 
 ### Verilator compile
 
@@ -386,31 +458,45 @@ Without a Liberty file, the backend runs generic `synth`. With one, it runs
 and combinational logic to cells from the selected library and reports cell
 area data. `synthesis.options` and CLI arguments remain Yosys process options.
 
-The generated `constraints/` directory remains reserved for future timing and
-pin constraints. Liberty mapping uses real cells, but DFlow does not yet pass
-an ABC delay target, ABC driving-cell/load constraints, SDC timing constraints,
-or physical placement information.
+### OpenLane ASIC flow
+
+The ASIC backend validates the configured design file and accepts OpenLane JSON,
+YAML, YML, and Tcl formats. It first uses `asic.executable` when configured,
+then an `openlane` executable on `PATH`. When neither is available, it validates
+`asic.openlane_root/flake.nix` and constructs:
+
+```text
+nix develop <openlane-root>#default --command openlane \
+  <configured options and flags> <design config>
+```
+
+OpenLane owns the detailed flow, PDK resolution, step outputs, and physical
+artifacts. DFlow streams its output live to the terminal or GUI while retaining
+the same output and return code in one report step. A Nix-backed first run may
+need network access to realize missing flake inputs and may download a PDK
+through Volare.
 
 ## 8. Reports and Generated Artifacts
 
 `save_flow_report()` normally creates `reports/<stage>/<tool>.log` and
-overwrites the same tool/stage log on later runs. Simulation instead creates a
-new `reports/sim/<tool>_<timestamp>.log` for every run, preserving its report
-history. For every completed step, the report records its name, command, return
-code, and non-empty `STDOUT`/`STDERR` sections.
+overwrites the same tool/stage log on later runs. Simulation and ASIC instead
+create new timestamped reports for every run, preserving their histories. For
+every completed step, the report records its name, command, return code, and
+non-empty `STDOUT`/`STDERR` sections.
 
-Compile, lint, simulation, and synthesis commands save reports for successful
-and nonzero tool results. They do not create a report when dispatch returns
-`None`. Yosys writes netlists under `build/synthesis/`. Verilator compile output
-uses `sim/compile_obj_dir/`, while simulation builds under `sim/obj_dir/`; a
-testbench may write files such as `sim/waves/*.vcd`. Simulation ensures
-`sim/waves/` exists before building. Use
+Compile, lint, simulation, synthesis, and ASIC commands save reports for
+successful and nonzero tool results. They do not create a report when dispatch
+returns `None`. Yosys writes netlists under `build/synthesis/`. Verilator
+compile output uses `sim/compile_obj_dir/`, while simulation builds under
+`sim/obj_dir/`; a testbench may write files such as `sim/waves/*.vcd`.
+OpenLane writes its run directories below `openlane/runs/`. Use
 `dflow clean --dry-run` to preview these generated artifacts and `dflow clean`
 to remove or clear them.
 
 ## 9. Counter Example
 
-`Dflow_project_examples/counter/` demonstrates the Verilator and Yosys flows:
+`Dflow_project_examples/counter/` demonstrates the Verilator, Yosys, and
+OpenLane flows:
 
 - `rtl/counter.v` is a four-bit active-low-reset counter.
 - `tb/counter_tb.sv` supplies a timed SystemVerilog testbench, enables VCD
@@ -418,22 +504,26 @@ to remove or clear them.
   failure.
 - `flow.yaml` selects Verilator for compile, lint, and simulation, declares
   `simulation.top: counter_tb`, selects Yosys, and declares
-  `synthesis.top: counter`.
+  `synthesis.top: counter`, and configures the local OpenLane 2 Nix checkout.
+- `openlane/config.json` defines a minimal counter design for OpenLane's Classic
+  flow using the default Sky130 PDK.
 - `.dflow` marks the example as a runnable DFlow project.
 - `sim/waves/counter.vcd` is a locally generated, currently untracked waveform.
 
 Unlike newly generated projects, the example omits compile/lint option lists, so
 backend defaults apply. Local runs have also produced ignored logs under
-`reports/{compile,lint,sim}/` and Verilator/Make output under `sim/obj_dir/`;
+`reports/{compile,lint,sim,asic}/`, Verilator/Make output under `sim/obj_dir/`,
+and may produce OpenLane physical-design runs under `openlane/runs/`;
 these are generated artifacts rather than maintained source files.
 
 ## 10. Current Limitations
 
-- Yosys supports Liberty cell mapping, but FPGA-family flows, ABC delay/load
-  constraints, SDC timing constraints, and physical design are not implemented.
+- Standalone Yosys supports Liberty mapping but does not apply the full physical
+  constraints used by OpenLane; use `dflow asic` for RTL-to-GDS implementation.
 - Simulation's Make command is tied to Clang/libc++ and LLVM 18 filesystem paths.
-- `doctor` checks configured tool names only; it does not validate backend
-  support, source files, YAML shape, `make`, Clang, or libc++.
+- `doctor` recognizes a configured OpenLane Nix flake but does not realize it,
+  validate its PDK, or check source/config semantics. It also does not validate
+  backend support, `make`, Clang, or libc++.
 - Config validation and friendly handling for malformed YAML or missing project
   markers are not implemented.
 - `logger.py`, `version.py`, and most package `__init__.py` files are empty.
@@ -441,7 +531,8 @@ these are generated artifacts rather than maintained source files.
 - The pytest suite covers shared results/reports, clean safety and failure
   handling, project status, doctor tool deduplication, and simulation
   sequencing; broader command/config coverage is still needed.
-- Reports overwrite previous logs for the same stage/tool.
+- Compile, lint, and synthesis reports still overwrite the previous log for the
+  same stage/tool; simulation and ASIC reports are timestamped.
 
 ## 11. Extension Rules
 

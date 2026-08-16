@@ -10,6 +10,7 @@ class FlowStepResult:
     returncode: int
     stdout: str = ""
     stderr: str = ""
+    output_streamed: bool = False
 
 
 @dataclass
