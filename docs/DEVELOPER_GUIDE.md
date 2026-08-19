@@ -67,12 +67,7 @@ status summarizes project sources, flows, reports, and generated artifacts.
 │       ├── simulation/               Verilator simulation dispatcher/backend
 │       ├── synthesis/                Yosys synthesis dispatcher/backend
 │       └── asic/                     OpenLane RTL-to-GDS dispatcher/backend
-└── Dflow_project_examples/counter/
-    ├── .dflow
-    ├── flow.yaml
-    ├── rtl/counter.v
-    ├── tb/counter_tb.sv
-    └── sim/waves/counter.vcd
+└── tests/                            isolated pytest coverage
 ```
 
 The top-level, command, and core `__init__.py` files are empty package markers;
@@ -525,24 +520,12 @@ proof work directories and traces below `formal/runs/`. Use
 `dflow clean --dry-run` to preview these generated artifacts and `dflow clean`
 to remove or clear them.
 
-## 9. Counter Example
+## 9. Local Integration Projects
 
-`Dflow_project_examples/counter/` demonstrates the Verilator, Yosys,
-SymbiYosys, and OpenLane flows:
-
-- `rtl/counter.v` is a four-bit active-low-reset counter.
-- `tb/counter_tb.sv` supplies a timed SystemVerilog testbench, enables VCD
-  tracing, checks that eight clock edges produce count 8, and exits fatally on
-  failure.
-- `flow.yaml` selects Verilator for compile, lint, and simulation, declares
-  `simulation.top: counter_tb`, selects Yosys, and declares
-  `synthesis.top: counter`, and configures the local OpenLane 2 Nix checkout.
-- `openlane/config.json` defines a minimal counter design for OpenLane's Classic
-  flow using the default Sky130 PDK.
-- `formal/counter.sby` defines `prove` and `cover` tasks using SMTBMC with Z3.
-- `formal/counter_formal.sv` asserts reset/increment behavior and covers the
-  reachable maximum four-bit count.
-- `.dflow` marks the example as a runnable DFlow project.
+Local HDL projects and examples are intentionally ignored by Git. Create one
+with `dflow init <project-name>` and use it for manual Verilator, Yosys,
+SymbiYosys, and OpenLane integration checks. Keep reusable behavior covered by
+isolated tests under `tests/`, where external EDA processes are mocked.
 - `sim/waves/counter.vcd` is a locally generated, currently untracked waveform.
 
 Unlike newly generated projects, the example omits compile/lint option lists, so

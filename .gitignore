@@ -2,13 +2,28 @@
 __pycache__/
 *.py[cod]
 *.so
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
 
 # Virtual environment
 .venv/
 venv/
+.env
+.env.*
+!.env.example
 
 # VS Code
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Pytest
 .pytest_cache/
@@ -19,6 +34,9 @@ dist/
 *.egg-info/
 
 # DFlow generated outputs
+# Local design examples are intentionally not part of the distributable tool.
+Dflow_project_examples/
+
 # Reports from compile, lint, simulation, synthesis, and ASIC commands
 reports/
 
@@ -26,6 +44,7 @@ reports/
 obj_dir/
 compile_obj_dir/
 **/sim/logs/
+*.d
 
 # Simulation waveforms
 **/sim/waves/
@@ -36,16 +55,31 @@ compile_obj_dir/
 *.ghw
 
 # Yosys synthesis output is written below build/
+*.blif
+*.edif
+*.jsonl
 
 # OpenLane run databases, logs, reports, and final physical views
 **/openlane/runs/
 
 # SymbiYosys proof work directories and counterexample traces
 **/formal/runs/
+status.sqlite
+*.smt2
+*.smtc
+*.yw
 
 # Logs
 logs/
 *.log
+
+# Local credentials and signing material
+credentials*
+secrets*
+*.pem
+*.key
+*.p12
+*.pfx
 
 # OS
 .DS_Store

@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "dflow"
 version = "0.1.0"
 description = "Digital Flow Manager"
+readme = "README.md"
+requires-python = ">=3.10"
 authors = [
     {name="Michael Hany"}
 ]
@@ -23,6 +25,10 @@ dev = [
 
 [project.scripts]
 dflow = "dflow.cli:app"
+
+[project.urls]
+Repository = "https://github.com/Michael-lhany/dflow"
+Documentation = "https://github.com/Michael-lhany/dflow/tree/master/docs"
 
 [tool.setuptools.packages.find]
 include = ["dflow*"]

@@ -388,24 +388,24 @@ steps must be valid OpenLane step IDs, such as `Verilator.Lint` or
 `OpenROAD.GeneratePDN`. Inspect the output panel for OpenLane's available-step
 error if a step ID is misspelled.
 
-## 12. Counter example
+## 12. Running your project
 
-The included example is ready for OpenLane:
+From any initialized DFlow project with a valid `openlane/config.json`:
 
 ```bash
-cd /home/michael/dflow/Dflow_project_examples/counter
-source /home/michael/dflow/activate.sh
+cd /path/to/your-project
+source /path/to/dflow/activate.sh
 dflow doctor
 dflow asic -- --to Verilator.Lint --condensed
 dflow asic -- --condensed
 ```
 
-Its relevant files are:
+The relevant project files are:
 
 ```text
-Dflow_project_examples/counter/
+your-project/
 ├── flow.yaml
-├── rtl/counter.v
+├── rtl/<design>.v
 └── openlane/config.json
 ```
 

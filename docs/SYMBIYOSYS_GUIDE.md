@@ -145,10 +145,10 @@ style for portable open-source jobs.
 
 ## 5. Running from the CLI
 
-From the counter project:
+From an initialized project with a configured `.sby` file:
 
 ```bash
-cd Dflow_project_examples/counter
+cd /path/to/your-project
 dflow formal
 ```
 

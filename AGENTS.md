@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`dflow/` contains the Python CLI package. Add user-facing Typer commands in `dflow/commands/`, shared project and filesystem behavior in `dflow/core/`, and tool-specific integrations in `dflow/backends/<flow>/` (for example, `backends/lint/verilator.py`). `dflow/cli.py` registers commands, while `dflow/config.py` reads project `flow.yaml` files. `Dflow_project_examples/counter/` is the working HDL example, with RTL in `rtl/`, testbench sources in `tb/`, and generated simulation output under `sim/`. Developer documentation lives in `docs/`; Python tests belong in `tests/`.
+`dflow/` contains the Python CLI package. Add user-facing Typer commands in `dflow/commands/`, shared project and filesystem behavior in `dflow/core/`, and tool-specific integrations in `dflow/backends/<flow>/` (for example, `backends/lint/verilator.py`). `dflow/cli.py` registers commands, while `dflow/config.py` reads project `flow.yaml` files. Local design examples are intentionally ignored so the distributable repository contains only the tool, documentation, and tests. Developer documentation lives in `docs/`; Python tests belong in `tests/`.
 
 ## Build, Test, and Development Commands
 
@@ -11,7 +11,7 @@
 - `dflow --help` verifies the CLI entry point and lists registered commands.
 - `dflow gui` opens the graphical command runner using the selected project.
 - `dflow doctor` checks tools configured by the nearest DFlow project's `flow.yaml`.
-- `dflow lint`, `dflow compile`, `dflow sim`, and `dflow synth` exercise flows from inside an example project; their configured tools must be installed.
+- `dflow lint`, `dflow compile`, `dflow sim`, and `dflow synth` exercise flows from inside an initialized project; their configured tools must be installed.
 - Put temporary backend arguments after `--`, for example `dflow lint -- -Wall --Wno-fatal`.
 - `pytest` runs the automated command, reporting, and backend tests.
 

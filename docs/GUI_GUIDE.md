@@ -8,7 +8,7 @@ page, option, action, and the command each control runs.
 Activate the DFlow development environment and launch the interface:
 
 ```bash
-cd /home/michael/dflow
+cd /path/to/dflow
 source ./activate.sh
 dflow gui
 ```
@@ -79,14 +79,14 @@ The new project is created below the directory in **Active project**. For
 example:
 
 ```text
-Active project: /home/michael/designs
+Active project: /path/to/designs
 Project name: uart
 ```
 
 runs:
 
 ```bash
-cd /home/michael/designs
+cd /path/to/designs
 python -m dflow.cli init uart
 ```
 
