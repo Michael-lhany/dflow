@@ -27,6 +27,7 @@ CLEAN_CATEGORIES = (
     "waveforms",
     "reports",
     "asic",
+    "formal",
 )
 GENERATED_DIRECTORIES = (
     ("build", Path("build")),
@@ -35,6 +36,7 @@ GENERATED_DIRECTORIES = (
     ("simulation", Path("sim/obj_dir")),
     ("simulation", Path("sim/logs")),
     ("asic", Path("openlane/runs")),
+    ("formal", Path("formal/runs")),
 )
 GENERATED_CONTENT_DIRECTORIES = (
     ("reports", Path("reports")),

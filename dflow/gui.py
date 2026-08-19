@@ -10,7 +10,7 @@ from tkinter.scrolledtext import ScrolledText
 from dflow.core.project import CLEAN_CATEGORIES
 
 
-OPTION_COMMANDS = {"compile", "lint", "sim", "synth", "asic"}
+OPTION_COMMANDS = {"compile", "lint", "sim", "synth", "asic", "formal"}
 CLEAN_CATEGORY_LABELS = {
     "build": "Synthesis build",
     "compile": "Compile output",
@@ -18,6 +18,7 @@ CLEAN_CATEGORY_LABELS = {
     "waveforms": "Waveforms",
     "reports": "Reports",
     "asic": "OpenLane runs",
+    "formal": "SymbiYosys runs",
 }
 
 
@@ -67,6 +68,41 @@ def build_asic_tool_options(
     return shlex.join(options)
 
 
+def build_formal_invocation(
+    *,
+    config: str = "",
+    tasks: str = "",
+    jobs: str = "",
+    sequential: bool = False,
+    live_status: bool = False,
+    extra_options: str = "",
+) -> tuple[list[str], str]:
+    """Build validated DFlow arguments and SBY options for the Formal page."""
+    command_arguments: list[str] = []
+    if config.strip():
+        command_arguments.extend(["--config", config.strip()])
+    for task in shlex.split(tasks):
+        command_arguments.extend(["--task", task])
+
+    tool_options: list[str] = []
+    normalized_jobs = jobs.strip()
+    if normalized_jobs:
+        try:
+            job_count = int(normalized_jobs)
+        except ValueError as error:
+            raise ValueError("SymbiYosys jobs must be a positive integer.") from error
+        if job_count < 1:
+            raise ValueError("SymbiYosys jobs must be a positive integer.")
+        tool_options.extend(["-j", str(job_count)])
+    if sequential:
+        tool_options.append("--sequential")
+    if live_status:
+        tool_options.extend(["--live", "jsonl"])
+    if extra_options.strip():
+        tool_options.extend(shlex.split(extra_options))
+    return command_arguments, shlex.join(tool_options)
+
+
 def build_clean_arguments(
     selected_categories: list[str],
     *,
@@ -108,6 +144,12 @@ class DFlowGui:
         self.asic_start_step = tk.StringVar(master=root)
         self.asic_end_step = tk.StringVar(master=root)
         self.asic_extra_options = tk.StringVar(master=root)
+        self.formal_config = tk.StringVar(master=root)
+        self.formal_tasks = tk.StringVar(master=root)
+        self.formal_jobs = tk.StringVar(master=root)
+        self.formal_sequential = tk.BooleanVar(master=root, value=False)
+        self.formal_live_status = tk.BooleanVar(master=root, value=True)
+        self.formal_extra_options = tk.StringVar(master=root)
         self.clean_categories = {
             category: tk.BooleanVar(master=root, value=True)
             for category in CLEAN_CATEGORIES
@@ -157,6 +199,7 @@ class DFlowGui:
         self._build_lint_page(notebook)
         self._build_simulation_page(notebook)
         self._build_synthesis_page(notebook)
+        self._build_formal_page(notebook)
         self._build_asic_page(notebook)
         self._build_status_page(notebook)
         self._build_doctor_page(notebook)
@@ -346,6 +389,62 @@ class DFlowGui:
             "Run Synthesis",
             lambda: self._run_command("synth"),
             row=4,
+            column=2,
+        )
+
+    def _build_formal_page(self, notebook: ttk.Notebook) -> None:
+        page = self._new_page(
+            notebook,
+            "Formal",
+            "SymbiYosys formal verification",
+            "Prove assertions, search bounded failures, and generate cover traces using the configured .sby job.",
+        )
+        self._add_options_entry(
+            page,
+            2,
+            "SBY configuration",
+            self.formal_config,
+            "Optional override, for example formal/counter.sby. Blank uses flow.yaml.",
+        )
+        self._add_options_entry(
+            page,
+            4,
+            "Tasks",
+            self.formal_tasks,
+            "Space-separated task names such as prove cover. Blank runs the .sby defaults.",
+        )
+
+        controls = ttk.Frame(page)
+        controls.grid(row=6, column=1, columnspan=2, sticky="ew")
+        ttk.Label(controls, text="Parallel jobs").grid(
+            row=0, column=0, sticky="w", padx=(0, 6)
+        )
+        ttk.Entry(controls, textvariable=self.formal_jobs, width=7).grid(
+            row=0, column=1, sticky="w", padx=(0, 16)
+        )
+        ttk.Checkbutton(
+            controls,
+            text="Run tasks sequentially",
+            variable=self.formal_sequential,
+        ).grid(row=0, column=2, sticky="w", padx=(0, 16))
+        ttk.Checkbutton(
+            controls,
+            text="Stream property status",
+            variable=self.formal_live_status,
+        ).grid(row=0, column=3, sticky="w")
+
+        self._add_options_entry(
+            page,
+            7,
+            "Extra SBY arguments",
+            self.formal_extra_options,
+            "Examples: --autotune, --setup, or --dumpcfg. Do not set -d/--prefix; DFlow manages timestamped run paths.",
+        )
+        self._add_button(
+            page,
+            "Run Formal Verification",
+            self._run_formal,
+            row=9,
             column=2,
         )
 
@@ -602,6 +701,21 @@ class DFlowGui:
             self._show_option_error(error)
             return
         self._run_command("asic", tool_options=options)
+
+    def _run_formal(self) -> None:
+        try:
+            arguments, options = build_formal_invocation(
+                config=self.formal_config.get(),
+                tasks=self.formal_tasks.get(),
+                jobs=self.formal_jobs.get(),
+                sequential=self.formal_sequential.get(),
+                live_status=self.formal_live_status.get(),
+                extra_options=self.formal_extra_options.get(),
+            )
+        except ValueError as error:
+            self._show_option_error(error)
+            return
+        self._run_command("formal", arguments, tool_options=options)
 
     def _run_openlane_lint(self) -> None:
         try:

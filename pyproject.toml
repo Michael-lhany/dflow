@@ -12,7 +12,8 @@ authors = [
 
 dependencies = [
     "typer",
-    "pyyaml"
+    "pyyaml",
+    "click"
 ]
 
 [project.optional-dependencies]

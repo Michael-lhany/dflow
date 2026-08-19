@@ -49,6 +49,49 @@ def test_build_cli_command_adds_asic_arguments():
     ]
 
 
+def test_build_cli_command_adds_formal_arguments():
+    assert gui_module.build_cli_command(
+        "formal",
+        "-j 4 --live jsonl",
+        ["--task", "prove"],
+    )[-7:] == [
+        "--task",
+        "prove",
+        "--",
+        "-j",
+        "4",
+        "--live",
+        "jsonl",
+    ]
+
+
+def test_build_formal_invocation_combines_page_controls():
+    arguments, options = gui_module.build_formal_invocation(
+        config="formal/counter.sby",
+        tasks="prove cover",
+        jobs="3",
+        sequential=True,
+        live_status=True,
+        extra_options="--autotune",
+    )
+
+    assert arguments == [
+        "--config",
+        "formal/counter.sby",
+        "--task",
+        "prove",
+        "--task",
+        "cover",
+    ]
+    assert options == "-j 3 --sequential --live jsonl --autotune"
+
+
+@pytest.mark.parametrize("jobs", ["0", "-2", "many"])
+def test_build_formal_invocation_rejects_invalid_jobs(jobs):
+    with pytest.raises(ValueError, match="positive integer"):
+        gui_module.build_formal_invocation(jobs=jobs)
+
+
 def test_build_cli_command_places_command_arguments_before_tool_separator():
     assert gui_module.build_cli_command(
         "sim",

@@ -14,6 +14,7 @@ def _create_sources(project_root):
 def test_simulation_returns_each_completed_step(monkeypatch, tmp_path):
     _create_sources(tmp_path)
     calls: list[str] = []
+    commands: dict[str, list[str]] = {}
 
     monkeypatch.setattr(
         simulation_backend,
@@ -23,6 +24,7 @@ def test_simulation_returns_each_completed_step(monkeypatch, tmp_path):
 
     def fake_run(command, project_root, step_name, env=None):
         calls.append(step_name)
+        commands[step_name] = command
         if step_name == "Make build":
             binary = project_root / "sim" / "obj_dir" / "Vtop_tb"
             binary.touch()
@@ -39,6 +41,9 @@ def test_simulation_returns_each_completed_step(monkeypatch, tmp_path):
     assert result.returncode == 0
     assert calls == ["Verilator build", "Make build", "Simulation"]
     assert [step.name for step in result.steps] == calls
+    assert "--timescale" in commands["Verilator build"]
+    timescale_index = commands["Verilator build"].index("--timescale")
+    assert commands["Verilator build"][timescale_index + 1] == "1ns/1ps"
     assert (tmp_path / "sim" / "waves").is_dir()
 
 

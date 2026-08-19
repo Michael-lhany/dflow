@@ -15,6 +15,13 @@ synthesis:
     tool: yosys
     top: counter
 
+formal:
+    tool: sby
+    config: formal/counter.sby
+    tasks:
+        - prove
+        - cover
+
 asic:
     tool: openlane
     executable: /nix/store/d81rkxkj7zm9bi8gj44ws7cxi7vhq6yw-python3.11-openlane-2.3.10/bin/openlane

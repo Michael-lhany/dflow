@@ -22,7 +22,7 @@ The current defaults are:
 | --- | --- |
 | Lint | `--lint-only -Wall` |
 | Compile | `--cc` |
-| Simulation build | `--cc --exe --main --trace --timing` |
+| Simulation build | `--cc --exe --main --trace --timing --timescale 1ns/1ps` |
 
 The simulation arguments above configure the **Verilator build**. Runtime
 `+verilator+...` arguments belong to the generated simulation executable and

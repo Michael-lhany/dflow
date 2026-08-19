@@ -10,6 +10,7 @@ from dflow.commands.status import status
 from dflow.commands.doctor import doctor
 from dflow.commands.clean import clean
 from dflow.commands.gui import gui
+from dflow.commands.formal import formal
 
 app = typer.Typer(
     help="Digital Flow Manager (DFLOW)"
@@ -25,6 +26,7 @@ app.command()(doctor)
 app.command()(clean)
 app.command()(gui)
 app.command()(asic)
+app.command()(formal)
 
 if __name__ == "__main__":
     app()

@@ -7,6 +7,7 @@ from dflow.commands import doctor as doctor_module
 from dflow.commands import lint as lint_module
 from dflow.commands import sim as sim_module
 from dflow.commands import synth as synth_module
+from dflow.commands import formal as formal_module
 from dflow.config import get_flow_options
 from dflow.core.project import PROJECT_MARKER
 
@@ -26,6 +27,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
         project_root / "sim" / "obj_dir",
         project_root / "sim" / "logs",
         project_root / "openlane" / "runs",
+        project_root / "formal" / "runs",
     ]
     preserved_directories = [
         project_root / "reports",
@@ -49,6 +51,7 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
         "Removed sim/obj_dir",
         "Removed sim/logs",
         "Removed openlane/runs",
+        "Removed formal/runs",
         "Cleared reports",
         "Cleared sim/waves",
     ]
@@ -272,6 +275,48 @@ def test_synth_appends_cli_tool_options(tmp_path, monkeypatch):
     assert (tmp_path / "reports" / "synthesis" / "yosys.log").is_file()
 
 
+def test_formal_applies_tasks_config_and_tool_options(tmp_path, monkeypatch):
+    (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
+    (tmp_path / "flow.yaml").write_text(
+        "formal:\n    tool: sby\n    config: formal/default.sby\n",
+        encoding="utf-8",
+    )
+    captured: dict = {}
+
+    def fake_run_formal(project_root, flow_config):
+        captured.update(flow_config["formal"])
+        return FlowRunResult(
+            tool_name="sby",
+            steps=[FlowStepResult("SymbiYosys", ["sby"], 0)],
+        )
+
+    monkeypatch.setattr(formal_module, "run_formal", fake_run_formal)
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(
+        app,
+        [
+            "formal",
+            "--config",
+            "formal/override.sby",
+            "--task",
+            "prove",
+            "--task",
+            "cover",
+            "--",
+            "-j",
+            "4",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["config"] == "formal/override.sby"
+    assert captured["tasks"] == ["prove", "cover"]
+    assert captured["_cli_options"] == ["-j", "4"]
+    assert "Formal verification passed with sby." in result.stdout
+    reports = list((tmp_path / "reports" / "formal").glob("sby_*.log"))
+    assert len(reports) == 1
+
+
 def test_sim_wave_opens_viewer_after_success(tmp_path, monkeypatch):
     (tmp_path / PROJECT_MARKER).write_text("version: 0.1.0\n", encoding="utf-8")
     (tmp_path / "flow.yaml").write_text(
@@ -406,6 +451,7 @@ synthesis:
         "  Simulation: verilator       last run: passed",
         "  Synthesis:  yosys           last run: not run",
         "  ASIC:       not configured  not run",
+        "  Formal:     not configured  not run",
         "",
         "Generated artifacts:",
         "  Reports: available",

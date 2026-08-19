@@ -30,7 +30,8 @@ User -> Typer command or Tkinter GUI -> project/config helpers -> backend dispat
 
 Compile, lint, and simulation have Verilator backends, synthesis has a Yosys
 backend with optional Liberty cell mapping, and the ASIC stage drives OpenLane
-2 directly or through a Nix flake. Clean removes generated artifacts, while
+2 directly or through a Nix flake. Formal verification drives SymbiYosys with
+timestamped proof work directories. Clean removes generated artifacts, while
 status summarizes project sources, flows, reports, and generated artifacts.
 
 ## 2. Repository Layout
@@ -44,6 +45,7 @@ status summarizes project sources, flows, reports, and generated artifacts.
 │   ├── DEVELOPER_GUIDE.md            implementation reference
 │   ├── GUI_GUIDE.md                  complete graphical-interface guide
 │   ├── OPENLANE_GUIDE.md             OpenLane user guide
+│   ├── SYMBIYOSYS_GUIDE.md           formal verification user guide
 │   ├── VERILATOR_ARGUMENTS.md        categorized Verilator option reference
 │   └── YOSYS_ARGUMENTS.md            Yosys and mapping option reference
 ├── tests/                            pytest suite
@@ -82,7 +84,8 @@ excludes Python caches, virtual environments, editor state, pytest/build output,
 
 `pyproject.toml` is the single dependency source. It uses
 `setuptools.build_meta` with `setuptools>=61`; package discovery includes only
-`dflow*`. Runtime dependencies are `typer` and `pyyaml`, while the optional
+`dflow*`. Runtime dependencies are `typer`, `pyyaml`, and `click` (also used
+by the standalone SymbiYosys launcher), while the optional
 `dev` extra installs pytest. The installed console script is:
 
 ```toml
@@ -203,12 +206,14 @@ Classic flow normally needs at least `DESIGN_NAME`, `VERILOG_FILES`,
 ### `dflow gui`
 
 Opens the tabbed Tkinter interface. A shared project selector sits above pages
-for Project, Compile, Lint, Simulation, Synthesis, ASIC, Status, Doctor, and
-Clean. Each executing flow keeps an independent argument field so options do
+for Project, Compile, Lint, Simulation, Synthesis, Formal, ASIC, Status,
+Doctor, and Clean. Each executing flow keeps an independent argument field so options do
 not leak between tools. The Simulation page can open a new waveform after a run
 or open the newest existing VCD without simulating. The ASIC page provides
 condensed output, parallel-job, start-step, end-step, extra-option, lint-only,
 KLayout, and OpenROAD controls.
+The Formal page selects a job and tasks and builds validated parallel,
+sequential, live-status, and extra SBY options.
 
 Commands run through `python -m dflow.cli`, so the GUI uses the same
 configuration, backends, reports, and exit codes as the terminal. Output is
@@ -311,12 +316,23 @@ OpenLane creates timestamped run directories beneath the design configuration
 directory's `runs/` folder. DFlow also preserves a timestamped wrapper report
 under `reports/asic/openlane_<timestamp>.log`.
 
+### `dflow formal [--task TASK] [--config FILE] [-- SBY_OPTION...]`
+
+Runs the configured SymbiYosys job. `--task/-t` is repeatable and temporarily
+replaces `formal.tasks`; `--config/-c` temporarily replaces `formal.config`.
+Raw SBY options follow `--`.
+
+The backend supplies a timestamped `--prefix` below `formal/runs/` (or the
+configured `formal.output_directory`), streams SBY output, and preserves a
+timestamped report under `reports/formal/sby_<timestamp>.log`.
+
 ### `dflow doctor`
 
 Collects unique, non-empty tool names from compile, lint, simulation,
-synthesis, and ASIC in that order. Each executable is checked once. OpenLane is
+synthesis, ASIC, and formal in that order. Each executable is checked once. OpenLane is
 considered available when it is on `PATH`, or when Nix and the configured
-OpenLane flake are present. It prints
+OpenLane flake are present. SymbiYosys accepts `sby` from `PATH` or an explicit
+`formal.executable`. It prints
 `<tool>: found|missing`, exits 1 if any are missing, and otherwise prints a
 success message. It does not validate backend support or simulation's additional
 `make`/Clang requirements.
@@ -326,7 +342,7 @@ success message. It does not validate backend support or simulation's additional
 Finds the project root and removes generated artifacts. With no category
 options, it removes `build/`, Verilator output at `sim/compile_obj_dir/` and
 `sim/obj_dir/`, the legacy root `obj_dir/`, obsolete `sim/logs/`, and
-`openlane/runs/`. It clears the contents of `reports/` and `sim/waves/` while
+`openlane/runs/` and `formal/runs/`. It clears `reports/` and `sim/waves/` while
 preserving those two scaffold directories.
 
 Cleanup targets are grouped as follows:
@@ -339,6 +355,7 @@ Cleanup targets are grouped as follows:
 | `waveforms` | Contents of `sim/waves/` |
 | `reports` | Contents of `reports/` |
 | `asic` | `openlane/runs/` |
+| `formal` | `formal/runs/` |
 
 `--only/-o` is repeatable and limits cleanup to named categories.
 `--exclude/-x` is also repeatable and preserves named categories; exclusions
@@ -361,7 +378,7 @@ remaining targets are still processed, and any failure produces exit code 1.
 
 Prints the project name and root, RTL and testbench source counts, each
 configured flow tool, and the latest result recorded for compile, lint,
-simulation, synthesis, and ASIC. It also reports whether reports, waveforms, and
+simulation, synthesis, ASIC, and formal. It also reports whether reports, waveforms, and
 build files are present. Status is read-only and does not check tool
 availability; use `dflow doctor` for that.
 
@@ -380,7 +397,7 @@ text stdout/stderr, and returns `FlowStepResult`. It does not use a shell or
 catch process-launch errors.
 
 `commands/common.py` provides the shared lifecycle for compile, lint,
-simulation, synthesis, and ASIC: project/config loading, backend invocation, report
+simulation, synthesis, ASIC, and formal: project/config loading, backend invocation, report
 persistence, step-output forwarding, success output, and exit-code propagation.
 
 ### Dispatchers
@@ -389,6 +406,7 @@ Flow dispatchers may load configuration themselves when none is supplied. Each
 reads its section's `tool` and prints an error and returns `None` for missing or
 unsupported tools. Compile, lint, and simulation support Verilator; synthesis
 supports Yosys; and ASIC supports OpenLane.
+Formal supports `sby` and the `symbiyosys` alias.
 
 ### Verilator compile
 
@@ -423,8 +441,13 @@ testbench source exists, its filename stem is inferred; with multiple sources,
 Simulation options default to:
 
 ```text
---cc --exe --main --trace --timing
+--cc --exe --main --trace --timing --timescale 1ns/1ps
 ```
+
+The default timescale supplies a value for RTL modules that omit a local
+directive while allowing testbenches to retain an explicit matching timescale.
+This avoids `TIMESCALEMOD` failures without adding simulation
+directives to synthesizable RTL used by OpenLane.
 
 Every run recursively removes an existing `sim/obj_dir`, recreates it, and runs:
 
@@ -476,27 +499,36 @@ the same output and return code in one report step. A Nix-backed first run may
 need network access to realize missing flake inputs and may download a PDK
 through Volare.
 
+### SymbiYosys formal verification
+
+`dflow/backends/formal/__init__.py` dispatches both `sby` and the
+`symbiyosys` alias. The backend resolves an optional explicit executable,
+validates the `.sby` job and task list, creates the configured run root, and
+gives SBY a unique timestamped prefix. SBY options precede the job path while
+task names follow it. Proof output is streamed and captured in one result step.
+
 ## 8. Reports and Generated Artifacts
 
 `save_flow_report()` normally creates `reports/<stage>/<tool>.log` and
-overwrites the same tool/stage log on later runs. Simulation and ASIC instead
+overwrites the same tool/stage log on later runs. Simulation, ASIC, and formal instead
 create new timestamped reports for every run, preserving their histories. For
 every completed step, the report records its name, command, return code, and
 non-empty `STDOUT`/`STDERR` sections.
 
-Compile, lint, simulation, synthesis, and ASIC commands save reports for
+Compile, lint, simulation, synthesis, ASIC, and formal commands save reports for
 successful and nonzero tool results. They do not create a report when dispatch
 returns `None`. Yosys writes netlists under `build/synthesis/`. Verilator
 compile output uses `sim/compile_obj_dir/`, while simulation builds under
 `sim/obj_dir/`; a testbench may write files such as `sim/waves/*.vcd`.
-OpenLane writes its run directories below `openlane/runs/`. Use
+OpenLane writes its run directories below `openlane/runs/`; SymbiYosys writes
+proof work directories and traces below `formal/runs/`. Use
 `dflow clean --dry-run` to preview these generated artifacts and `dflow clean`
 to remove or clear them.
 
 ## 9. Counter Example
 
-`Dflow_project_examples/counter/` demonstrates the Verilator, Yosys, and
-OpenLane flows:
+`Dflow_project_examples/counter/` demonstrates the Verilator, Yosys,
+SymbiYosys, and OpenLane flows:
 
 - `rtl/counter.v` is a four-bit active-low-reset counter.
 - `tb/counter_tb.sv` supplies a timed SystemVerilog testbench, enables VCD
@@ -507,13 +539,17 @@ OpenLane flows:
   `synthesis.top: counter`, and configures the local OpenLane 2 Nix checkout.
 - `openlane/config.json` defines a minimal counter design for OpenLane's Classic
   flow using the default Sky130 PDK.
+- `formal/counter.sby` defines `prove` and `cover` tasks using SMTBMC with Z3.
+- `formal/counter_formal.sv` asserts reset/increment behavior and covers the
+  reachable maximum four-bit count.
 - `.dflow` marks the example as a runnable DFlow project.
 - `sim/waves/counter.vcd` is a locally generated, currently untracked waveform.
 
 Unlike newly generated projects, the example omits compile/lint option lists, so
 backend defaults apply. Local runs have also produced ignored logs under
-`reports/{compile,lint,sim,asic}/`, Verilator/Make output under `sim/obj_dir/`,
-and may produce OpenLane physical-design runs under `openlane/runs/`;
+`reports/{compile,lint,sim,asic,formal}/`, Verilator/Make output under `sim/obj_dir/`,
+OpenLane physical-design runs under `openlane/runs/`, and SBY work directories
+under `formal/runs/`;
 these are generated artifacts rather than maintained source files.
 
 ## 10. Current Limitations
@@ -532,7 +568,7 @@ these are generated artifacts rather than maintained source files.
   handling, project status, doctor tool deduplication, and simulation
   sequencing; broader command/config coverage is still needed.
 - Compile, lint, and synthesis reports still overwrite the previous log for the
-  same stage/tool; simulation and ASIC reports are timestamped.
+  same stage/tool; simulation, ASIC, and formal reports are timestamped.
 
 ## 11. Extension Rules
 

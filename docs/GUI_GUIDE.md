@@ -251,7 +251,35 @@ The synthesis report is written to:
 reports/synthesis/<tool>.log
 ```
 
-## 9. ASIC tab
+## 9. Formal tab
+
+The Formal tab runs the SymbiYosys backend configured in `flow.yaml`.
+
+| Control | Generated argument | Description |
+| --- | --- | --- |
+| **SBY configuration** | `--config <file>` | Temporarily selects another `.sby` job |
+| **Tasks** | Repeated `--task <name>` | Selects space-separated tasks such as `prove cover` |
+| **Parallel jobs** | `-j <count>` | Sets the maximum SBY process count |
+| **Run tasks sequentially** | `--sequential` | Runs tasks one after another |
+| **Stream property status** | `--live jsonl` | Streams property updates |
+| **Extra SBY arguments** | User-entered options | Adds options such as `--autotune` |
+
+The configuration and task fields may be blank to use `flow.yaml`. A complete
+selection can generate:
+
+```bash
+dflow formal --config formal/counter.sby \
+    --task prove --task cover -- -j 4 --live jsonl
+```
+
+DFlow preserves SBY work directories under `formal/runs/` and timestamped
+reports under `reports/formal/`. Do not provide `-d` or `--prefix` as an extra
+argument because DFlow manages unique run paths.
+
+See [SymbiYosys formal verification with DFlow](SYMBIYOSYS_GUIDE.md) for job
+syntax, properties, trace viewing, and troubleshooting.
+
+## 10. ASIC tab
 
 The ASIC tab controls the OpenLane RTL-to-GDS backend.
 
@@ -342,7 +370,7 @@ reports/asic/openlane_<timestamp>.log
 For full OpenLane configuration and troubleshooting, see
 [Using OpenLane with DFlow](OPENLANE_GUIDE.md).
 
-## 10. Status tab
+## 11. Status tab
 
 The Status tab is read-only.
 
@@ -360,7 +388,7 @@ It reports:
 
 Status does not execute EDA tools or validate their installation.
 
-## 11. Doctor tab
+## 12. Doctor tab
 
 The Doctor tab checks configured tool availability.
 
@@ -379,7 +407,7 @@ Doctor does not validate HDL, PDK completeness, backend options, Make, Clang,
 or the complete OpenLane environment. Run the actual stage or OpenLane lint-only
 action for deeper validation.
 
-## 12. Clean tab
+## 13. Clean tab
 
 The Clean tab safely previews or removes selected generated artifacts.
 
@@ -391,6 +419,7 @@ The Clean tab safely previews or removes selected generated artifacts.
 | **Waveforms** | `waveforms` | Contents of `sim/waves/` |
 | **Reports** | `reports` | Contents of `reports/` |
 | **OpenLane runs** | `asic` | `openlane/runs/` |
+| **SymbiYosys runs** | `formal` | `formal/runs/` |
 
 ### Selection actions
 
@@ -431,7 +460,7 @@ The CLI additionally supports exclusions, for example:
 dflow clean --exclude reports --exclude asic
 ```
 
-## 13. Shared output console
+## 14. Shared output console
 
 The bottom panel displays the exact working directory and command before each
 run:
@@ -451,7 +480,7 @@ finishes, the GUI appends its exit code:
 The status line reports completion or failure. **Clear Output** removes text
 from the GUI console only; it does not delete saved reports or flow artifacts.
 
-## 14. Argument quoting
+## 15. Argument quoting
 
 Option fields support shell-style quoting. For example:
 
@@ -483,7 +512,7 @@ not:
 dflow asic -- --run-tag floorplan_test
 ```
 
-## 15. Typical workflows
+## 16. Typical workflows
 
 ### RTL development loop
 
@@ -499,6 +528,14 @@ dflow asic -- --run-tag floorplan_test
 2. Run **Synthesis**.
 3. Use **Status** to confirm the report result.
 4. Inspect generated netlists under `build/synthesis/`.
+
+### Formal verification loop
+
+1. Add assertions and cover statements in a formal harness.
+2. Configure its `.sby` job and the `flow.yaml` formal section.
+3. Open **Formal**, select `prove`, and run the safety proof.
+4. Select `cover` to confirm the intended state is reachable and inspect its
+   VCD trace in GTKWave.
 
 ### First OpenLane run
 
@@ -518,7 +555,7 @@ dflow asic -- --run-tag floorplan_test
 4. Review the listed paths in the console.
 5. Click **Clean Selected** and confirm.
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 ### A command does nothing
 
@@ -558,9 +595,16 @@ machine has sufficient CPU and memory.
 Use **Preview Cleanup** before confirming. The preview uses the exact same
 category selection without deleting anything.
 
-## 17. Related documentation
+### SymbiYosys or its solver is missing
+
+Run **Doctor** and confirm `sby: found`. Start the GUI from a terminal whose
+`PATH` includes `~/.local/bin`. If SBY starts but its engine fails, verify the
+solver from the `.sby` `[engines]` section, such as `command -v z3`.
+
+## 18. Related documentation
 
 - [Using OpenLane with DFlow](OPENLANE_GUIDE.md)
+- [SymbiYosys formal verification with DFlow](SYMBIYOSYS_GUIDE.md)
 - [Verilator Arguments](VERILATOR_ARGUMENTS.md)
 - [Yosys Arguments](YOSYS_ARGUMENTS.md)
 - [DFlow Developer Guide](DEVELOPER_GUIDE.md)

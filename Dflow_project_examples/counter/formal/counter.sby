@@ -1,0 +1,26 @@
+[tasks]
+prove :default
+cover :default
+fail
+
+[options]
+prove: mode prove
+prove: depth 20
+cover: mode cover
+cover: depth 40
+fail: mode bmc
+fail: depth 10
+multiclock on
+
+[engines]
+smtbmc z3
+
+[script]
+prove: read -formal -sv counter.v counter_formal.sv
+cover: read -formal -sv counter.v counter_formal.sv
+fail: read -formal -D INTENTIONAL_FAILURE -sv counter.v counter_formal.sv
+prep -top counter_formal
+
+[files]
+counter.v rtl/counter.v
+counter_formal.sv formal/counter_formal.sv

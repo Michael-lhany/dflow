@@ -39,12 +39,18 @@ def run_stage_command(
     tool_options: list[str] | None = None,
     success_action: SuccessAction | None = None,
     timestamp_report: bool = False,
+    section_overrides: dict | None = None,
 ) -> None:
     """Run a configured backend and handle its common CLI lifecycle."""
     project_root = find_project_root()
     flow_config = load_flow_config(project_root)
-    if tool_options:
+    if tool_options or section_overrides:
         section_config = dict(flow_config.get(stage_name) or {})
+        if section_overrides:
+            section_config.update(section_overrides)
+
+        # Command-line tool arguments are kept separate from maintained
+        # flow.yaml options so backends can append them in the right place.
         section_config["_cli_options"] = tool_options
         flow_config = {**flow_config, stage_name: section_config}
 

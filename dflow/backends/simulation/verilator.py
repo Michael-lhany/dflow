@@ -17,6 +17,8 @@ DEFAULT_SIM_OPTIONS = [
     "--main",
     "--trace",
     "--timing",
+    "--timescale",
+    "1ns/1ps",
 ]
 MAKE_TOOLCHAIN_ARGUMENTS = [
     "CXX=clang++",

@@ -40,6 +40,9 @@ compile_obj_dir/
 # OpenLane run databases, logs, reports, and final physical views
 **/openlane/runs/
 
+# SymbiYosys proof work directories and counterexample traces
+**/formal/runs/
+
 # Logs
 logs/
 *.log
