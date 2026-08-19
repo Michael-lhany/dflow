@@ -85,6 +85,7 @@ and `--exclude`.
 
 ## Documentation
 
+- [Dependencies](docs/DEPENDENCIES.md)
 - [GUI guide](docs/GUI_GUIDE.md)
 - [OpenLane guide](docs/OPENLANE_GUIDE.md)
 - [SymbiYosys guide](docs/SYMBIYOSYS_GUIDE.md)
