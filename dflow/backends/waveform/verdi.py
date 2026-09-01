@@ -6,7 +6,7 @@ from dflow.utils import is_tool_available
 
 
 VERDI = "verdi"
-SUPPORTED_SUFFIXES = {".fsdb"}
+SUPPORTED_SUFFIXES = {".fsdb", ".vcd"}
 
 
 def open_latest_waveform(

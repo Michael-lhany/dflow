@@ -204,7 +204,7 @@ It does not compile or run simulation and intentionally ignores the Simulation
 tab's simulator compile arguments.
 
 The viewer configured in `flow.yaml` must be installed and available on `PATH`.
-GTKWave opens VCD files; Verdi opens FSDB files. Waveforms are searched
+GTKWave opens VCD files; Verdi opens FSDB and VCD files. Waveforms are searched
 recursively below:
 
 ```text

@@ -94,8 +94,8 @@ end
 
 Recent VCS/Verdi releases support native FSDB integration with the default
 `-kdb` debug build. Older site installations may also require their documented
-FSDB PLI options in `simulation.options`. Verdi selects the newest `.fsdb`
-recursively under `sim/waves/` and launches it with `verdi -ssf`.
+FSDB PLI options in `simulation.options`. Verdi selects the newest `.fsdb` or
+`.vcd` recursively under `sim/waves/` and launches it with `verdi -ssf`.
 
 ## Commands and outputs
 

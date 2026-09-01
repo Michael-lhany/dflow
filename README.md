@@ -9,7 +9,7 @@ synthesis, formal verification, and RTL-to-GDS implementation.
 
 - Verilator or Synopsys VCS compilation and simulation
 - Verilator or Synopsys SpyGlass linting
-- GTKWave VCD or Synopsys Verdi FSDB viewing without rerunning simulation
+- GTKWave VCD or Synopsys Verdi FSDB/VCD viewing without rerunning simulation
 - Yosys or Synopsys Design Compiler synthesis
 - SymbiYosys formal verification with task selection and counterexample traces
 - OpenLane RTL-to-GDS flow integration

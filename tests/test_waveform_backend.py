@@ -104,6 +104,35 @@ def test_waveform_dispatcher_launches_verdi_for_newest_supported_file(
     assert capsys.readouterr().out == "Opening sim/waves/newer.fsdb with Verdi.\n"
 
 
+def test_waveform_dispatcher_launches_verdi_for_vcd(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    older_fsdb = tmp_path / "sim" / "waves" / "older.fsdb"
+    vcd = tmp_path / "sim" / "waves" / "newer.vcd"
+    older_fsdb.parent.mkdir(parents=True)
+    older_fsdb.write_text("fsdb\n", encoding="utf-8")
+    vcd.write_text("vcd\n", encoding="utf-8")
+    os.utime(older_fsdb, ns=(1_000_000, 1_000_000))
+    os.utime(vcd, ns=(2_000_000, 2_000_000))
+    monkeypatch.setattr(verdi_backend, "is_tool_available", lambda tool: True)
+    launched = {}
+
+    def fake_popen(command, **kwargs):
+        launched["command"] = command
+        return object()
+
+    monkeypatch.setattr(verdi_backend.subprocess, "Popen", fake_popen)
+
+    assert open_latest_waveform(
+        tmp_path,
+        flow_config={"waveform": {"tool": "verdi"}},
+    )
+    assert launched["command"] == ["verdi", "-ssf", str(vcd)]
+    assert capsys.readouterr().out == "Opening sim/waves/newer.vcd with Verdi.\n"
+
+
 def test_waveform_dispatcher_defaults_to_gtkwave(monkeypatch, tmp_path):
     waveform = tmp_path / "sim" / "waves" / "top.vcd"
     waveform.parent.mkdir(parents=True)

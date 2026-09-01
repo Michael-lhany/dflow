@@ -261,7 +261,7 @@ dflow sim -- --threads 4
 Pass `--wave` (or `-w`) to open a waveform created during the successful
 simulation. The configured viewer is launched as a detached process, so DFlow
 exits while the viewer remains open. GTKWave selects VCD and Verdi selects
-FSDB files under `sim/waves/`:
+FSDB or VCD files under `sim/waves/`:
 
 ```bash
 dflow sim --wave

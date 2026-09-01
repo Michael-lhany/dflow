@@ -110,7 +110,8 @@ synthesis:
 ```
 
 VCS simulation compile options and runtime options are separate. The testbench
-must write its FSDB file beneath `sim/waves/` for the Verdi backend to find it.
+must write its FSDB or VCD file beneath `sim/waves/` for the Verdi backend to
+find it.
 
 ## `project`
 
@@ -261,7 +262,7 @@ waveform:
     tool: gtkwave
 ```
 
-Use Verdi for FSDB files:
+Use Verdi for FSDB or VCD files:
 
 ```yaml
 waveform:
