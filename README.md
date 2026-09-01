@@ -7,10 +7,10 @@ synthesis, formal verification, and RTL-to-GDS implementation.
 
 ## Features
 
-- Verilator compilation, linting, and simulation
-- GTKWave waveform viewing, including opening an existing VCD without rerunning
-  simulation
-- Yosys synthesis
+- Verilator or Synopsys VCS compilation and simulation
+- Verilator or Synopsys SpyGlass linting
+- GTKWave VCD or Synopsys Verdi FSDB viewing without rerunning simulation
+- Yosys or Synopsys Design Compiler synthesis
 - SymbiYosys formal verification with task selection and counterexample traces
 - OpenLane RTL-to-GDS flow integration
 - Timestamped simulation, formal, and ASIC reports that preserve previous runs
@@ -24,6 +24,7 @@ the flows you intend to run:
 
 - Verilator and Make for compile, lint, and simulation
 - GTKWave for waveform viewing
+- Synopsys VCS, Verdi, SpyGlass, and Design Compiler for optional commercial flows
 - Yosys for synthesis
 - SymbiYosys, Yosys, and a supported solver such as Z3 for formal verification
 - OpenLane and its PDK dependencies for physical ASIC implementation
@@ -86,9 +87,11 @@ and `--exclude`.
 ## Documentation
 
 - [Dependencies](docs/DEPENDENCIES.md)
+- [`flow.yaml` configuration guide](docs/FLOW_YAML_GUIDE.md)
 - [GUI guide](docs/GUI_GUIDE.md)
 - [OpenLane guide](docs/OPENLANE_GUIDE.md)
 - [SymbiYosys guide](docs/SYMBIYOSYS_GUIDE.md)
+- [Synopsys tools guide](docs/SYNOPSYS_GUIDE.md)
 - [Verilator arguments](docs/VERILATOR_ARGUMENTS.md)
 - [Yosys arguments](docs/YOSYS_ARGUMENTS.md)
 - [Developer guide](docs/DEVELOPER_GUIDE.md)

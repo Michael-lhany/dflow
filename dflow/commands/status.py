@@ -96,7 +96,14 @@ def status() -> None:
         displayed_tool = tool_name or "not configured"
         if tool_name:
             report_stage = "sim" if stage == "simulation" else stage
-            last_result = _report_status(project_root, report_stage, tool_name)
+            report_tool = (
+                "dc_shell"
+                if tool_name in {"dc", "design_compiler"}
+                else tool_name
+            )
+            last_result = _report_status(
+                project_root, report_stage, report_tool
+            )
             result = f"last run: {last_result}"
         else:
             result = "not run"
@@ -108,7 +115,9 @@ def status() -> None:
             Path("build"),
             Path("obj_dir"),
             Path("sim/compile_obj_dir"),
+            Path("sim/vcs_compile"),
             Path("sim/obj_dir"),
+            Path("sim/vcs"),
             Path("openlane/runs"),
             Path("formal/runs"),
         )

@@ -137,7 +137,7 @@ The Lint tab runs the configured RTL linter.
 
 | Control | Description |
 | --- | --- |
-| **Verilator arguments** | Temporary lint options |
+| **Linter arguments** | Temporary options for Verilator or SpyGlass |
 | **Run Lint** | Runs `dflow lint` |
 
 Example field value:
@@ -167,10 +167,10 @@ The Simulation tab builds and runs the configured testbench.
 
 | Control | Description |
 | --- | --- |
-| **Verilator arguments** | Temporary Verilator simulation-build options |
+| **Simulator compile arguments** | Temporary options for the configured simulator build |
 | **Open a newly generated waveform** | Adds `--wave` to the DFlow simulation command |
 | **Run Simulation** | Builds and runs the simulation |
-| **Open Existing Wave** | Opens the newest existing VCD without simulating |
+| **Open Existing Wave** | Opens the newest supported waveform without simulating |
 
 ### Run without opening a waveform
 
@@ -188,8 +188,9 @@ With the checkbox selected:
 dflow sim --wave
 ```
 
-DFlow opens only a VCD created or updated during that successful simulation.
-This prevents an old waveform from being mistaken for current output.
+DFlow opens only a supported waveform created or updated during that successful
+simulation. This prevents an old waveform from being mistaken for current
+output.
 
 ### Open an existing waveform
 
@@ -200,9 +201,10 @@ dflow sim --wave-only
 ```
 
 It does not compile or run simulation and intentionally ignores the Simulation
-tab's Verilator arguments.
+tab's simulator compile arguments.
 
-GTKWave must be installed and available on `PATH`. Waveforms are searched
+The viewer configured in `flow.yaml` must be installed and available on `PATH`.
+GTKWave opens VCD files; Verdi opens FSDB files. Waveforms are searched
 recursively below:
 
 ```text
@@ -221,7 +223,7 @@ The Synthesis tab generates netlists using the configured synthesis backend.
 
 | Control | Description |
 | --- | --- |
-| **Yosys arguments** | Temporary Yosys process options |
+| **Synthesis arguments** | Temporary Yosys or Design Compiler process options |
 | **Run Synthesis** | Runs `dflow synth` |
 
 Example field value:
@@ -236,8 +238,9 @@ Generated command:
 dflow synth -- -Q -q
 ```
 
-The top module and optional Liberty file are persistent project settings under
-the `synthesis` section of `flow.yaml`; they are not GUI text fields.
+The top module, libraries, and optional constraints/setup files are persistent
+project settings under the `synthesis` section of `flow.yaml`; they are not GUI
+text fields.
 
 Generated netlists are written under:
 
@@ -573,10 +576,10 @@ Doctor tabs to distinguish a project configuration issue from a missing tool.
 Check for unmatched quotes. On the ASIC tab, also verify that **Parallel jobs**
 is blank or a positive integer.
 
-### GTKWave does not open
+### Waveform viewer does not open
 
-Confirm that `gtkwave` is installed, a VCD exists under `sim/waves/`, and the
-GUI was started from a graphical desktop session.
+Confirm that the configured viewer is installed, a supported waveform exists
+under `sim/waves/`, and the GUI was started from a graphical desktop session.
 
 ### KLayout or OpenROAD does not open
 

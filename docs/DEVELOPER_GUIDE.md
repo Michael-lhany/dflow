@@ -28,8 +28,9 @@ User -> Typer command or Tkinter GUI -> project/config helpers -> backend dispat
 - `dflow/config.py` normalizes `flow.yaml` data.
 - `dflow/utils.py` checks executable availability on `PATH`.
 
-Compile, lint, and simulation have Verilator backends, synthesis has a Yosys
-backend with optional Liberty cell mapping, and the ASIC stage drives OpenLane
+Compile and simulation have Verilator and VCS backends, lint supports Verilator
+and SpyGlass, waveform viewing supports GTKWave and Verdi, synthesis supports
+Yosys and Design Compiler, and the ASIC stage drives OpenLane
 2 directly or through a Nix flake. Formal verification drives SymbiYosys with
 timestamped proof work directories. Clean removes generated artifacts, while
 status summarizes project sources, flows, reports, and generated artifacts.
@@ -63,9 +64,9 @@ status summarizes project sources, flows, reports, and generated artifacts.
 │       ├── result.py                 flow and step result models
 │       ├── verilator.py              shared RTL-stage runner
 │       ├── compile/                  Verilator compile dispatcher/backend
-│       ├── lint/                     Verilator lint dispatcher/backend
+│       ├── lint/                     Verilator/SpyGlass dispatcher and backends
 │       ├── simulation/               Verilator simulation dispatcher/backend
-│       ├── synthesis/                Yosys synthesis dispatcher/backend
+│       ├── synthesis/                Yosys/Design Compiler dispatcher and backends
 │       └── asic/                     OpenLane RTL-to-GDS dispatcher/backend
 └── tests/                            isolated pytest coverage
 ```
@@ -168,10 +169,11 @@ Recognized fields are:
 | Section | Fields used | Current behavior |
 | --- | --- | --- |
 | `project` | `name` | Generated metadata; not otherwise consumed |
-| `compile` | `tool`, `options` | Backend selection and Verilator arguments |
-| `lint` | `tool`, `options` | Backend selection and Verilator arguments |
-| `simulation` | `tool`, `options`, `top` | Backend, arguments, and top module |
-| `synthesis` | `tool`, `options`, `top`, `liberty` | Yosys arguments, top, and optional cell library |
+| `compile` | `tool`, `options`, `top` | Verilator/VCS selection and compiler arguments |
+| `lint` | `tool`, `options`, `top`, `project`, `goal` | Verilator or SpyGlass configuration |
+| `simulation` | `tool`, `options`, `runtime_options`, `top` | Backend, compile/runtime arguments, and top module |
+| `waveform` | `tool` | GTKWave or Verdi viewer selection |
+| `synthesis` | `tool`, `options`, `top`, `liberty`, `setup`, `constraints`, `target_libraries`, `link_libraries`, `compile_ultra`, `executable` | Yosys or Design Compiler configuration |
 | `asic` | `tool`, `config`, `executable`, `openlane_root`, `options` | OpenLane design config and direct/Nix execution |
 
 `synthesis.liberty` accepts an absolute path, a path relative to the project
@@ -256,15 +258,17 @@ Arguments after `--` are appended to the configured/default simulation options:
 dflow sim -- --threads 4
 ```
 
-Pass `--wave` (or `-w`) to open the newest VCD under `sim/waves/` in
-GTKWave after a successful simulation. GTKWave is launched as a detached
-process, so DFlow exits while the viewer remains open:
+Pass `--wave` (or `-w`) to open a waveform created during the successful
+simulation. The configured viewer is launched as a detached process, so DFlow
+exits while the viewer remains open. GTKWave selects VCD and Verdi selects
+FSDB files under `sim/waves/`:
 
 ```bash
 dflow sim --wave
 ```
 
-Use `--wave-only` to open the newest existing VCD without running simulation:
+Use `--wave-only` to open the newest existing supported waveform without
+running simulation:
 
 ```bash
 dflow sim --wave-only
@@ -399,9 +403,23 @@ persistence, step-output forwarding, success output, and exit-code propagation.
 
 Flow dispatchers may load configuration themselves when none is supplied. Each
 reads its section's `tool` and prints an error and returns `None` for missing or
-unsupported tools. Compile, lint, and simulation support Verilator; synthesis
-supports Yosys; and ASIC supports OpenLane.
+unsupported tools. Compile and simulation support Verilator and VCS, lint
+supports Verilator, waveform viewing supports GTKWave and Verdi, synthesis
+supports Yosys, and ASIC supports OpenLane.
 Formal supports `sby` and the `symbiyosys` alias.
+
+### Synopsys VCS and Verdi
+
+The VCS compile backend elaborates sorted RTL sources into
+`sim/vcs_compile/simv`. The simulation backend compiles sorted RTL and
+testbench sources into `sim/vcs/simv`, stops on build failure, then runs the
+binary with separately configured `simulation.runtime_options`. Defaults enable
+VCS debug data; the testbench owns FSDB dumping under `sim/waves/`.
+
+The waveform dispatcher defaults to GTKWave for backward compatibility. With
+`waveform.tool: verdi`, it selects the newest FSDB under
+`sim/waves/` and launches `verdi -ssf` as a detached process. See
+`docs/SYNOPSYS_GUIDE.md` for configuration and manual validation.
 
 ### Verilator compile
 

@@ -14,12 +14,12 @@ def sim(
         False,
         "--wave",
         "-w",
-        help="Open the newest generated VCD in GTKWave after simulation.",
+        help="Open the newest generated waveform in the configured viewer.",
     ),
     wave_only: bool = typer.Option(
         False,
         "--wave-only",
-        help="Open the newest existing VCD in GTKWave without simulating.",
+        help="Open the newest existing waveform without simulating.",
     ),
     tool_options: list[str] | None = typer.Argument(
         None,

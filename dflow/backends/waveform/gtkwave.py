@@ -1,28 +1,11 @@
 import subprocess
 from pathlib import Path
 
+from dflow.backends.waveform.common import latest_waveform
 from dflow.utils import is_tool_available
 
 
 GTKWAVE = "gtkwave"
-
-
-def _latest_vcd(
-    wave_directory: Path,
-    modified_since_ns: int | None = None,
-) -> Path | None:
-    waveforms = [
-        path
-        for path in wave_directory.rglob("*.vcd")
-        if path.is_file()
-        and (
-            modified_since_ns is None
-            or path.stat().st_mtime_ns >= modified_since_ns
-        )
-    ]
-    if not waveforms:
-        return None
-    return max(waveforms, key=lambda path: (path.stat().st_mtime_ns, str(path)))
 
 
 def open_latest_waveform(
@@ -30,8 +13,9 @@ def open_latest_waveform(
     modified_since_ns: int | None = None,
 ) -> bool:
     """Open the newest project VCD in a detached GTKWave process."""
-    waveform = _latest_vcd(
+    waveform = latest_waveform(
         project_root / "sim" / "waves",
+        {".vcd"},
         modified_since_ns,
     )
     if waveform is None:

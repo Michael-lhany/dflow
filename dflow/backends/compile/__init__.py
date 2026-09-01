@@ -4,6 +4,7 @@ from dflow.backends.result import FlowRunResult
 from dflow.config import get_flow_tool, load_flow_config
 
 from .verilator import run_verilator_compile
+from .vcs import run_vcs_compile
 
 
 def run_compile(project_root: Path, flow_config: dict | None = None) -> FlowRunResult | None:
@@ -17,6 +18,8 @@ def run_compile(project_root: Path, flow_config: dict | None = None) -> FlowRunR
 
 	if compile_tool == "verilator":
 		return run_verilator_compile(project_root, config)
+	if compile_tool == "vcs":
+		return run_vcs_compile(project_root, config)
 
 	print(f"Unsupported compile tool '{compile_tool}' configured in {project_root / 'flow.yaml'}.")
 	return None

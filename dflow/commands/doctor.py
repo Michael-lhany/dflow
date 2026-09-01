@@ -2,6 +2,9 @@ import typer
 
 from dflow.backends.asic.openlane import is_openlane_runtime_available
 from dflow.backends.formal.symbiyosys import is_symbiyosys_runtime_available
+from dflow.backends.synthesis.design_compiler import (
+    is_design_compiler_runtime_available,
+)
 from dflow.config import get_flow_tool, load_flow_config
 from dflow.core.project import find_project_root
 from dflow.utils import is_tool_available
@@ -19,6 +22,7 @@ def doctor():
         get_flow_tool(flow_config, "synthesis"),
         get_flow_tool(flow_config, "asic"),
         get_flow_tool(flow_config, "formal"),
+        get_flow_tool(flow_config, "waveform"),
     ]
     required_tools = list(dict.fromkeys(
         tool_name for tool_name in configured_tools if tool_name
@@ -34,6 +38,10 @@ def doctor():
             availability[tool_name] = is_symbiyosys_runtime_available(
                 project_root,
                 flow_config,
+            )
+        elif tool_name in {"dc", "dc_shell", "design_compiler"}:
+            availability[tool_name] = is_design_compiler_runtime_available(
+                flow_config
             )
         else:
             availability[tool_name] = is_tool_available(tool_name)

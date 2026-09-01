@@ -3,6 +3,7 @@ from pathlib import Path
 from dflow.backends.result import FlowRunResult
 from dflow.config import get_flow_tool, load_flow_config
 
+from .design_compiler import run_design_compiler_synthesis
 from .yosys import run_yosys_synthesis
 
 
@@ -27,6 +28,8 @@ def run_synthesis(
 
     if synthesis_tool == "yosys":
         return run_yosys_synthesis(project_root, config)
+    if synthesis_tool in {"dc", "dc_shell", "design_compiler"}:
+        return run_design_compiler_synthesis(project_root, config)
 
     print(
         f"Unsupported synthesis tool '{synthesis_tool}' configured in "

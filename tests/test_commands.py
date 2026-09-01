@@ -24,7 +24,9 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
         project_root / "build",
         project_root / "obj_dir",
         project_root / "sim" / "compile_obj_dir",
+        project_root / "sim" / "vcs_compile",
         project_root / "sim" / "obj_dir",
+        project_root / "sim" / "vcs",
         project_root / "sim" / "logs",
         project_root / "openlane" / "runs",
         project_root / "formal" / "runs",
@@ -48,7 +50,9 @@ def test_clean_removes_generated_artifacts(tmp_path, monkeypatch):
         "Removed build",
         "Removed obj_dir",
         "Removed sim/compile_obj_dir",
+        "Removed sim/vcs_compile",
         "Removed sim/obj_dir",
+        "Removed sim/vcs",
         "Removed sim/logs",
         "Removed openlane/runs",
         "Removed formal/runs",
@@ -467,6 +471,7 @@ def test_doctor_checks_each_unique_tool_once(monkeypatch, tmp_path, capsys):
         "lint": {"tool": "verilator"},
         "simulation": {"tool": "verilator"},
         "synthesis": {"tool": "yosys"},
+        "waveform": {"tool": "verdi"},
     }
 
     monkeypatch.setattr(doctor_module, "find_project_root", lambda: tmp_path)
@@ -488,10 +493,49 @@ def test_doctor_checks_each_unique_tool_once(monkeypatch, tmp_path, capsys):
 
     doctor_module.doctor()
 
-    assert checks == ["verilator", "yosys"]
+    assert checks == ["verilator", "yosys", "verdi"]
     assert capsys.readouterr().out.splitlines() == [
         "verilator: found",
         "yosys: found",
+        "verdi: found",
+        "All required tools are available.",
+    ]
+
+
+def test_doctor_checks_design_compiler_runtime(monkeypatch, tmp_path, capsys):
+    flow_config = {
+        "lint": {"tool": "spyglass"},
+        "synthesis": {
+            "tool": "dc",
+            "executable": "/eda/synopsys/bin/dc_shell",
+        },
+    }
+    checks: list[str] = []
+
+    monkeypatch.setattr(doctor_module, "find_project_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        doctor_module,
+        "load_flow_config",
+        lambda project_root: flow_config,
+    )
+    monkeypatch.setattr(
+        doctor_module,
+        "is_tool_available",
+        lambda tool_name: checks.append(tool_name) or True,
+    )
+    monkeypatch.setattr(
+        doctor_module,
+        "is_design_compiler_runtime_available",
+        lambda config: checks.append(config["synthesis"]["executable"])
+        or True,
+    )
+
+    doctor_module.doctor()
+
+    assert checks == ["spyglass", "/eda/synopsys/bin/dc_shell"]
+    assert capsys.readouterr().out.splitlines() == [
+        "spyglass: found",
+        "dc: found",
         "All required tools are available.",
     ]
 

@@ -298,9 +298,9 @@ class DFlowGui:
         self._add_options_entry(
             page,
             2,
-            "Verilator arguments",
+            "Compiler arguments",
             self.command_options["compile"],
-            "Examples: --top-module counter or -Wall. These are appended after --.",
+            "Options for the configured compiler. These are appended after --.",
         )
         self._add_button(
             page,
@@ -315,14 +315,15 @@ class DFlowGui:
             notebook,
             "Lint",
             "Lint RTL",
-            "Check RTL style, widths, unused signals, and other Verilator diagnostics.",
+            "Check RTL style, widths, unused signals, and other "
+            "configured-tool diagnostics.",
         )
         self._add_options_entry(
             page,
             2,
-            "Verilator arguments",
+            "Linter arguments",
             self.command_options["lint"],
-            "Examples: -Wall --Wno-fatal or --Wno-TIMESCALEMOD.",
+            "Temporary options passed to the configured lint backend.",
         )
         self._add_button(
             page,
@@ -337,14 +338,14 @@ class DFlowGui:
             notebook,
             "Simulation",
             "Build and run simulation",
-            "Run the configured testbench, optionally opening a newly generated VCD in GTKWave.",
+            "Run the configured testbench, optionally opening a newly generated waveform.",
         )
         self._add_options_entry(
             page,
             2,
-            "Verilator arguments",
+            "Simulator compile arguments",
             self.command_options["sim"],
-            "Examples: --threads 4. Runtime-independent build options are appended after --.",
+            "Build options for the configured simulator are appended after --.",
         )
         ttk.Checkbutton(
             page,
@@ -380,9 +381,10 @@ class DFlowGui:
         self._add_options_entry(
             page,
             2,
-            "Yosys arguments",
+            "Synthesis arguments",
             self.command_options["synth"],
-            "Examples: -Q or -q. Top module and Liberty mapping are configured in flow.yaml.",
+            "Temporary options for the configured synthesizer; design "
+            "settings stay in flow.yaml.",
         )
         self._add_button(
             page,

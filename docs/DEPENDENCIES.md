@@ -31,6 +31,10 @@ python -m pip install -e '.[dev]'
 | GNU Make | Simulation build | [GNU Make](https://www.gnu.org/software/make/) |
 | Clang/LLVM 18 | Simulation C++ build | [LLVM packages](https://apt.llvm.org/) |
 | GTKWave | Waveform viewing | [GTKWave](https://gtkwave.sourceforge.net/) |
+| Synopsys VCS | Optional compilation and simulation | Licensed Synopsys installation |
+| Synopsys Verdi | Optional VPD/FSDB/VCD viewing | Licensed Synopsys installation |
+| Synopsys SpyGlass | Optional RTL linting | Licensed Synopsys installation |
+| Synopsys Design Compiler | Optional RTL synthesis | Licensed Synopsys installation |
 | Yosys and ABC | Synthesis and formal verification | [Yosys GitHub](https://github.com/YosysHQ/yosys) |
 | SymbiYosys (`sby`) | Formal verification | [SBY GitHub](https://github.com/YosysHQ/sby) |
 | `yosys-smtbmc` | Formal SMT engine | Installed with Yosys |

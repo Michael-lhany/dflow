@@ -3,6 +3,7 @@ from pathlib import Path
 from dflow.backends.result import FlowRunResult
 from dflow.config import get_flow_tool, load_flow_config
 
+from .spyglass import run_spyglass_lint
 from .verilator import run_verilator_lint
 
 
@@ -17,6 +18,8 @@ def run_lint(project_root: Path, flow_config: dict | None = None) -> FlowRunResu
 
 	if lint_tool == "verilator":
 		return run_verilator_lint(project_root, config)
+	if lint_tool == "spyglass":
+		return run_spyglass_lint(project_root, config)
 
 	print(f"Unsupported lint tool '{lint_tool}' configured in {project_root / 'flow.yaml'}.")
 	return None
